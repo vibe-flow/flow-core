@@ -107,6 +107,76 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 - **Éviter `bunx tsc --noEmit`** (peut crash OOM sur gros projets — réservé au CI dans un job dédié si nécessaire)
 - `bun run dev` fonctionne (tsx compile à la volée)
 
+## Secrets & Config
+
+**Principe** : zéro fichier `.env*` dans le repo, jamais. Une seule source par catégorie, tout reproductible depuis Git + BSM.
+
+### Trois catégories, trois emplacements
+
+| Type                                                        | Où ça vit                                                                               | Exemple                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Secret** (sensible, ne doit pas fuiter)                   | Bitwarden Secret Manager (BSM), déclaré dans `.kamal/secrets`                           | `DATABASE_URL`, `JWT_SECRET`, `BREVO_API_KEY`               |
+| **Config par environnement** (varie dev/prod, non-sensible) | `config/deploy.yml` → `env.clear` pour la prod ; defaults `??` dans le code pour le dev | `FRONTEND_URL`, `NODE_ENV`, `LOG_LEVEL`, `LITELLM_BASE_URL` |
+| **Config statique** (jamais ne change)                      | Code en dur (`config/*.ts`, `vite.config.ts`)                                           | constantes métier, pagination max                           |
+
+**Critère simple** : si tu peux le push sur GitHub en clair sans problème → c'est de la config, pas un secret.
+
+### BSM — convention
+
+- **Un projet vibe-stack = un projet BSM**, identifié par UUID dans `.flow/bws-project-id`
+- **Préfixe par service** dans les noms de secrets : `<service>/<KEY>` (ex: `corseo/DATABASE_URL`). Permet de partager un projet BSM entre plusieurs apps si nécessaire (contrainte 3 projets max sur BSM Premium).
+- En CI : `BWS_ACCESS_TOKEN` est le seul secret GitHub Actions à configurer ; tout le reste vient de BSM
+- En dev local : `bws run -- bun dev` (charge les secrets BSM en env vars puis lance dev)
+
+### Fichier `.kamal/secrets` (versionné)
+
+Liste déclarative des secrets attendus par le projet. Ne contient **aucune valeur** :
+
+```bash
+SECRETS=$(kamal secrets fetch --adapter bitwarden-sm \
+  --account $(cat .flow/bws-project-id) \
+  <service>/DATABASE_URL,<service>/REDIS_URL,<service>/JWT_SECRET)
+
+KAMAL_REGISTRY_PASSWORD=$(kamal secrets extract <service>/REGISTRY_PASSWORD "$SECRETS")
+DATABASE_URL=$(kamal secrets extract <service>/DATABASE_URL "$SECRETS")
+REDIS_URL=$(kamal secrets extract <service>/REDIS_URL "$SECRETS")
+JWT_SECRET=$(kamal secrets extract <service>/JWT_SECRET "$SECRETS")
+```
+
+### Workflow — ajouter un nouveau secret
+
+1. Créer dans BSM : `bws secret create <service>/<KEY> "<value>" $(cat .flow/bws-project-id)`
+2. Ajouter le nom dans le `kamal secrets fetch` ET la ligne `extract` dans `.kamal/secrets`
+3. Si l'app le consomme : référence `process.env.<KEY>` dans le code
+4. Commit : `feat(secrets): add <KEY>`
+
+**Claude doit faire les étapes 1 et 2 automatiquement** quand on lui demande d'ajouter un secret — c'est la convention, pas un skill séparé.
+
+### Workflow — rotation d'un secret
+
+1. Édit la valeur dans BSM
+2. `kamal deploy` (re-fetch automatique)
+3. Done. Aucun fichier à toucher.
+
+### Dev local — defaults dans le code
+
+Pour que `bun dev` marche sans config préalable, le code définit des defaults dev via `??` :
+
+```typescript
+// apps/api/src/config/app.config.ts
+export const appConfig = {
+  port: parseInt(process.env.PORT ?? '3000'),
+  frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  databaseUrl: process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/dev',
+}
+```
+
+Pour utiliser les VRAIS secrets en dev (Stripe test, etc.) : `bws run -- bun dev`.
+
+### Frontend Vite — vars build-time
+
+Les `VITE_*` sont injectées au build (pas au runtime). Pour la prod, déclarer dans `config/deploy.yml` → `builder.args` (clear) ou `builder.secrets` (BSM). En dev, le proxy Vite (`/api` → `:3000`) gomme la plupart des différences d'URL.
+
 ## Interdictions strictes
 
 - `class-validator` → utiliser Zod
@@ -116,16 +186,18 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 - Dépendances hors workspace (chaque package doit être dans le monorepo Bun)
 - `Jest` → utiliser Vitest
 - `tsc --noEmit` pour type-checking → utiliser `bun run lint:check`
-- **Secrets en clair** dans le repo (`.env` commité, hard-coded keys, etc.) → tout passe par Bitwarden Secrets Manager (BSM)
+- **Fichiers `.env*`** dans le repo (`.env`, `.env.local`, `.env.prod`, `.env.example`, etc.) → tout passe par BSM + `config/deploy.yml` + defaults code. Voir section "Secrets & Config".
+- **Secrets en clair** dans le repo (hard-coded keys, etc.) → BSM uniquement.
 
 ## Dossier `.flow/`
 
 Pièce charnière entre un projet et l'écosystème `flow`. Versionné dans le repo du projet.
 
-| Fichier          | Rôle                                                                                    | Géré par                                                |
-| ---------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `conventions.md` | Ce fichier — conventions transversales. Importé en première ligne du `CLAUDE.md` racine | `/flow:update` — **jamais édité à la main**             |
-| `project.json`   | Identité du projet : `id`, `name`, `stack`                                              | Dev (init par `/flow:new-project`)                      |
-| `deploy.json`    | Config de déploiement : destinations, healthcheck, registry                             | `/flow:deploy-setup`, puis dev                          |
-| `flow-lock.json` | Tracking du commit `flow-core` synchronisé + commits des modules importés               | `/flow:update`, `/flow:import-module`, `/flow:upstream` |
-| `bws-project-id` | UUID public du project Bitwarden Secrets Manager associé                                | `/flow:deploy-setup`                                    |
+| Fichier             | Rôle                                                                                    | Géré par                                                 |
+| ------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `conventions.md`    | Ce fichier — conventions transversales. Importé en première ligne du `CLAUDE.md` racine | `/flow:update` — **jamais édité à la main**              |
+| `project.json`      | Identité du projet : `id`, `name`, `stack`                                              | Dev (init par `/flow:new-project`)                       |
+| `config/deploy.yml` | Config Kamal (hors `.flow/`) : service, image, hosts, accessory API, registry           | `/flow:deploy-setup`, puis dev                           |
+| `.kamal/secrets`    | Liste déclarative des secrets attendus (versionné, valeurs en BSM)                      | `/flow:deploy-setup`, mis à jour à chaque nouveau secret |
+| `flow-lock.json`    | Tracking du commit `flow-core` synchronisé + commits des modules importés               | `/flow:update`, `/flow:import-module`, `/flow:upstream`  |
+| `bws-project-id`    | UUID public du project Bitwarden Secrets Manager associé                                | `/flow:deploy-setup`                                     |
