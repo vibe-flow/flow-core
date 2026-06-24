@@ -123,30 +123,38 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 
 ### BSM — convention
 
-- **Un projet vibe-stack = un projet BSM**, identifié par UUID dans `.flow/bws-project-id`
-- **Préfixe par service** dans les noms de secrets : `<service>/<KEY>` (ex: `corseo/DATABASE_URL`). Permet de partager un projet BSM entre plusieurs apps si nécessaire (contrainte 3 projets max sur BSM Premium).
-- En CI : `BWS_ACCESS_TOKEN` est le seul secret GitHub Actions à configurer ; tout le reste vient de BSM
-- En dev local : `bws run -- bun dev` (charge les secrets BSM en env vars puis lance dev)
+- **Un projet vibe-stack = un projet BSM dédié**, dont l'UUID vit dans `.flow/deploy.json` (`secrets_provider.bws_project_id` + `bws_shared_project_id` pour les secrets transversaux). L'org Bitwarden est en plan **Teams** → projets illimités (l'ancien plafond de 3 projets du free tier n'existe plus).
+- **Noms de secrets simples, sans préfixe** : `DATABASE_URL`, `JWT_SECRET`, `VITE_MAPBOX_TOKEN`… Chaque app ayant son projet dédié, il n'y a rien à désambiguïser. (L'ancien préfixe `<service>/<KEY>` était un contournement du plafond 3 projets — abandonné.)
+- **Un seul machine account partagé** (token `BWS_ACCESS_TOKEN`, dans `~/.zshrc`) avec accès à tous les projets. L'isolation se fait au niveau **projet**, pas au niveau machine account. Un machine account par projet ne serait qu'un durcissement sécurité optionnel (réduire le périmètre d'un token fuité) — non requis aujourd'hui.
+- En CI : `BWS_ACCESS_TOKEN` est le seul secret GitHub Actions à configurer ; tout le reste vient de BSM.
+- En dev local : **`bws run --project-id <uuid> -- bun dev`** (UUID = celui de `.flow/deploy.json`). Le `--project-id` est **obligatoire** : sans lui, `bws run` agrège tous les projets visibles par le machine account partagé → collision sur les clés homonymes (ex. `VITE_MAPBOX_TOKEN` présent dans plusieurs projets).
 
 ### Fichier `.kamal/secrets` (versionné)
 
-Liste déclarative des secrets attendus par le projet. Ne contient **aucune valeur** :
+Script déclaratif résolu à chaque `kamal deploy`. Aucune valeur en clair : lit les deux UUID depuis `.flow/deploy.json`, fetch chaque projet par UUID (`<uuid>/all`), puis extrait par nom de clé :
 
 ```bash
-SECRETS=$(kamal secrets fetch --adapter bitwarden-sm \
-  --account $(cat .flow/bws-project-id) \
-  <service>/DATABASE_URL,<service>/REDIS_URL,<service>/JWT_SECRET)
+set -euo pipefail
+: "${BWS_ACCESS_TOKEN:?missing}"
+BWS_PROJECT_ID="$(jq -er '.secrets_provider.bws_project_id' .flow/deploy.json)"
+BWS_SHARED_PROJECT_ID="$(jq -er '.secrets_provider.bws_shared_project_id' .flow/deploy.json)"
 
-KAMAL_REGISTRY_PASSWORD=$(kamal secrets extract <service>/REGISTRY_PASSWORD "$SECRETS")
-DATABASE_URL=$(kamal secrets extract <service>/DATABASE_URL "$SECRETS")
-REDIS_URL=$(kamal secrets extract <service>/REDIS_URL "$SECRETS")
-JWT_SECRET=$(kamal secrets extract <service>/JWT_SECRET "$SECRETS")
+# Transversaux (registry) depuis le projet shared
+SECRETS_SHARED=$(kamal secrets fetch --adapter bitwarden-sm "${BWS_SHARED_PROJECT_ID}/all")
+REGISTRY_USER=$(kamal secrets extract REGISTRY_USER ${SECRETS_SHARED})
+KAMAL_REGISTRY_PASSWORD=$(kamal secrets extract KAMAL_REGISTRY_PASSWORD ${SECRETS_SHARED})
+
+# Secrets propres à l'app depuis son projet dédié
+SECRETS=$(kamal secrets fetch --adapter bitwarden-sm "${BWS_PROJECT_ID}/all")
+DATABASE_URL=$(kamal secrets extract DATABASE_URL ${SECRETS})
+JWT_SECRET=$(kamal secrets extract JWT_SECRET ${SECRETS})
+# … une ligne `extract` par secret consommé
 ```
 
 ### Workflow — ajouter un nouveau secret
 
-1. Créer dans BSM : `bws secret create <service>/<KEY> "<value>" $(cat .flow/bws-project-id)`
-2. Ajouter le nom dans le `kamal secrets fetch` ET la ligne `extract` dans `.kamal/secrets`
+1. Créer dans BSM : `bws secret create <KEY> "<value>" <bws_project_id>` (UUID depuis `.flow/deploy.json`)
+2. Ajouter la ligne `extract` correspondante dans `.kamal/secrets`
 3. Si l'app le consomme : référence `process.env.<KEY>` dans le code
 4. Commit : `feat(secrets): add <KEY>`
 
@@ -171,7 +179,7 @@ export const appConfig = {
 }
 ```
 
-Pour utiliser les VRAIS secrets en dev (Stripe test, etc.) : `bws run -- bun dev`.
+Pour utiliser les VRAIS secrets en dev (Stripe test, etc.) : `bws run --project-id <uuid> -- bun dev` (UUID depuis `.flow/deploy.json`).
 
 ### Frontend Vite — vars build-time
 
@@ -193,11 +201,11 @@ Les `VITE_*` sont injectées au build (pas au runtime). Pour la prod, déclarer 
 
 Pièce charnière entre un projet et l'écosystème `flow`. Versionné dans le repo du projet.
 
-| Fichier             | Rôle                                                                                    | Géré par                                                 |
-| ------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `conventions.md`    | Ce fichier — conventions transversales. Importé en première ligne du `CLAUDE.md` racine | `/flow:update` — **jamais édité à la main**              |
-| `project.json`      | Identité du projet : `id`, `name`, `stack`                                              | Dev (init par `/flow:new-project`)                       |
-| `config/deploy.yml` | Config Kamal (hors `.flow/`) : service, image, hosts, accessory API, registry           | `/flow:deploy-setup`, puis dev                           |
-| `.kamal/secrets`    | Liste déclarative des secrets attendus (versionné, valeurs en BSM)                      | `/flow:deploy-setup`, mis à jour à chaque nouveau secret |
-| `flow-lock.json`    | Tracking du commit `flow-core` synchronisé + commits des modules importés               | `/flow:update`, `/flow:import-module`, `/flow:upstream`  |
-| `bws-project-id`    | UUID public du project Bitwarden Secrets Manager associé                                | `/flow:deploy-setup`                                     |
+| Fichier             | Rôle                                                                                                                        | Géré par                                                 |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `conventions.md`    | Ce fichier — conventions transversales. Importé en première ligne du `CLAUDE.md` racine                                     | `/flow:update` — **jamais édité à la main**              |
+| `project.json`      | Identité du projet : `id`, `name`, `stack`                                                                                  | Dev (init par `/flow:new-project`)                       |
+| `config/deploy.yml` | Config Kamal (hors `.flow/`) : service, image, hosts, accessory API, registry                                               | `/flow:deploy-setup`, puis dev                           |
+| `.kamal/secrets`    | Liste déclarative des secrets attendus (versionné, valeurs en BSM)                                                          | `/flow:deploy-setup`, mis à jour à chaque nouveau secret |
+| `flow-lock.json`    | Tracking du commit `flow-core` synchronisé + commits des modules importés                                                   | `/flow:update`, `/flow:import-module`, `/flow:upstream`  |
+| `deploy.json`       | Métadonnées de déploiement : host SSH, registry, et UUIDs BSM (`secrets_provider.bws_project_id` + `bws_shared_project_id`) | `/flow:deploy-setup`                                     |
