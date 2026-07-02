@@ -268,10 +268,16 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload)
 
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
-    })
+    // `jti` unique : sans lui, deux connexions dans la même seconde produisent un
+    // refresh token identique (même payload + iat) → collision sur la contrainte
+    // unique `token`.
+    const refreshToken = this.jwtService.sign(
+      { ...payload, jti: crypto.randomUUID() },
+      {
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+      },
+    )
 
     const expiresInDays = parseInt(
       this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d').replace('d', ''),
