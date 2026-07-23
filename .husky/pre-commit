@@ -1,18 +1,1 @@
-# Block direct commits on main (merges allowed)
-# Exception: vibe-stack template repo itself
-project_name=$(grep -o '"name": *"[^"]*"' .flow/project.json 2>/dev/null | cut -d'"' -f4)
-if [ "$project_name" != "vibe-stack" ]; then
-  branch=$(git branch --show-current)
-  if [ "$branch" = "main" ]; then
-    if [ ! -f .git/MERGE_HEAD ]; then
-      echo ""
-      echo "Commits directs sur 'main' interdits."
-      echo "Creer une branche feature/ ou fix/ depuis main."
-      echo "Utiliser un worktree : git worktree add .worktrees/feature-name main"
-      echo ""
-      exit 1
-    fi
-  fi
-fi
-
 bunx lint-staged

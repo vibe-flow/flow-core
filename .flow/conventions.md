@@ -37,11 +37,10 @@ Conventions transversales de l'écosystème `flow`. Ce fichier est importé par 
 
 ## Workflow Git
 
-- **GitHub Flow strict** : `main` est la seule branche longue (prod + intégration)
-- **JAMAIS** de commit direct sur `main` (bloqué par hook pre-commit)
-- Toujours créer une branche depuis `main` : `feature/<slug>`, `fix/<slug>` ou `hotfix/<slug>`
-- Utiliser des worktrees dans `.worktrees/` : `git worktree add .worktrees/<slug> main`
-- Merger via PR
+- **Solo, trunk-based** : `main` est la seule branche longue. Commit direct sur `main` autorisé (on bosse seul).
+- Branche `feature/<slug>`, `fix/<slug>` ou `hotfix/<slug>` **optionnelle** : à créer pour isoler un chantier long, une expérimentation ou une review — pas une obligation.
+- Merger via PR quand on veut une trace ou une review ; sinon commit direct sur `main`.
+- Worktrees dans `.worktrees/` disponibles pour paralléliser (`git worktree add .worktrees/<slug> main`).
 
 ## Structure d'un module backend
 
