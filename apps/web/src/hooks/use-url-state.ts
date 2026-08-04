@@ -32,6 +32,13 @@ function decode<T extends UrlStateValue>(raw: string | null, defaultValue: T): T
 /**
  * State persisted in URL search params. Shareable by link.
  *
+ * ⚠️ Un seul paramètre à la fois. Deux `setValue` dans le même gestionnaire
+ * (« pose ce filtre, et reviens en page 1 ») se marchent dessus : `navigate`
+ * étant différé, l'updater du second reçoit encore l'URL d'avant le premier,
+ * et seule la dernière écriture survit — le filtre disparaît aussitôt posé,
+ * sans erreur nulle part. Pour changer plusieurs paramètres d'un coup, passer
+ * par `useSearchParams` et construire une seule `URLSearchParams`.
+ *
  * @param key - URL param name (e.g. 'q', 'page', 'status')
  * @param defaultValue - Default when param is absent
  * @returns [value, setValue] — same API as useState

@@ -85,12 +85,12 @@ Dans `apps/api/src/modules/<nom>/` :
 
 **Règle** : tout état que l'utilisateur s'attend à retrouver au refresh doit être persisté.
 
-| Type d'état                                                              | Outil                                           | Storage                                                                     |
-| ------------------------------------------------------------------------ | ----------------------------------------------- | --------------------------------------------------------------------------- |
-| Filtres, tri, pagination, préférences de page                            | `usePersistedState(key, default)`               | localStorage + sync onglets + sync BDD si module `user-preferences` présent |
-| Paramètres partageables par URL (recherche, filtres principaux)          | `useUrlState(key, default)`                     | URL                                                                         |
-| Préférences globales app (sidebar, theme, densité)                       | `ui.store.ts` (qui utilise `usePersistedState`) | localStorage                                                                |
-| État éphémère (modals, loading, hover, animations, formulaires en cours) | `useState`                                      | mémoire                                                                     |
+| Type d'état                                                              | Outil                                                                                | Storage                                                                     |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| Filtres, tri, pagination, préférences de page                            | `usePersistedState(key, default)`                                                    | localStorage + sync onglets + sync BDD si module `user-preferences` présent |
+| Paramètres partageables par URL (recherche, filtres principaux)          | `useUrlState(key, default)` — **un seul paramètre par geste** (voir la note du hook) | URL                                                                         |
+| Préférences globales app (sidebar, theme, densité)                       | `ui.store.ts` (qui utilise `usePersistedState`)                                      | localStorage                                                                |
+| État éphémère (modals, loading, hover, animations, formulaires en cours) | `useState`                                                                           | mémoire                                                                     |
 
 Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflexion. `useState` reste OK pour l'éphémère.
 
