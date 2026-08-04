@@ -55,5 +55,30 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Pas de rebond élastique ni de « tirer pour recharger » en bout de liste :
+       dans une app, ce geste veut lire la suite, pas repartir de zéro. */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Deux tapes rapprochées sur un même contrôle déclenchent le zoom du
+     navigateur : l'écran repart de travers, à recadrer à la main. C'est
+     fréquent dès qu'on saisit vite (incrémenter, valider, enchaîner).
+     `manipulation` supprime ce double-tap **sans** toucher au pincement, qui
+     reste disponible pour agrandir le texte — on retire un geste parasite,
+     pas l'accessibilité.
+
+     Ne jamais remplacer ça par `user-scalable=no` dans le viewport : c'est
+     une régression d'accessibilité, et iOS l'ignore hors app installée. Pour
+     une surface qui gère son propre zoom (canvas, carte), poser
+     `touch-action: none` sur ce composant précis — et lui faire fournir le
+     pincement en échange. */
+  button,
+  a,
+  [role='button'],
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
   }
 }

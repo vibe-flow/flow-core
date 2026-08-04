@@ -35,6 +35,22 @@ Conventions transversales de l'écosystème `flow`. Ce fichier est importé par 
 - **Aucune dépendance serveur** (pas de Prisma, pas de Node APIs)
 - Vérifier l'index avant d'en créer un nouveau (anti-duplication)
 
+## Modules optionnels — quand y penser
+
+Les briques de [flow-modules](https://github.com/vibe-flow/flow-modules) s'importent via `/flow:import-module <nom>`. Elles ne sont pas dans le gabarit parce qu'elles ne servent pas à tout le monde — mais certaines se décident **au cadrage**, pas six mois plus tard.
+
+| Y penser quand…                                                                   | Module                                                                                           |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| l'app sera utilisée **au téléphone pour de vrai** (terrain, déplacement, atelier) | **`pwa`** — installable sur l'écran d'accueil, plein écran, et **qui se met à jour toute seule** |
+| connexion sans mot de passe                                                       | `magic-link`                                                                                     |
+| saisie d'adresses postales                                                        | `address-autocomplete`                                                                           |
+| exposer les routes tRPC à un assistant                                            | `mcp`                                                                                            |
+| agents / graphes LLM                                                              | `langgraph`, `langgraph-debug`                                                                   |
+| interface type éditeur (onglets, split)                                           | `editor-tabs`, `app-ux-defaults`                                                                 |
+| détection auto des réglages IMAP/SMTP                                             | `mail-discovery`                                                                                 |
+
+**`pwa` est le plus souvent oublié**, et c'est celui qui coûte le plus cher à rattraper : sans lui, une app pensée pour le mobile s'ouvre dans un onglet parmi trente, sous une barre d'adresse qui mange l'écran — et, service worker mal réglé, peut rester bloquée des semaines sur une version périmée chez l'utilisateur. Le poser au départ prend une heure.
+
 ## Workflow Git
 
 - **Solo, trunk-based** : `main` est la seule branche longue. Commit direct sur `main` autorisé (on bosse seul).
