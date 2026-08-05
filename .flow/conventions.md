@@ -121,6 +121,7 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 - **Utiliser `bun run lint:check`** (ESLint, léger)
 - **Éviter `bunx tsc --noEmit`** (peut crash OOM sur gros projets — réservé au CI dans un job dédié si nécessaire)
 - `bun run dev` fonctionne (tsx compile à la volée)
+- **`tsx watch` ne recharge PAS sur `.env`** — il ne surveille que `src/`. Toute modification d'une variable d'environnement impose un **redémarrage complet de l'API** : sans ça on débogue un comportement qui vient d'une config déjà remplacée en mémoire.
 
 ## Secrets & Config
 
