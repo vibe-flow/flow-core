@@ -100,7 +100,9 @@ fi
 
 : "${BWS_ACCESS_TOKEN:?BWS_ACCESS_TOKEN missing — export-le dans ~/.zshrc}"
 
-BWS_PROJECT_ID="$(jq -er '.bws.project_id' .flow/project.json)"
+# Un projet sans secrets a lui (site statique) n'a pas de projet BWS dedie : il
+# ne consomme que les identifiants de registry, qui vivent dans le partage.
+BWS_PROJECT_ID="$(jq -r '.bws.project_id // empty' .flow/project.json)"
 BWS_SHARED_PROJECT_ID="$(jq -er '.bws.shared_project_id' .flow/project.json)"
 export BWS_PROJECT_ID BWS_SHARED_PROJECT_ID
 
