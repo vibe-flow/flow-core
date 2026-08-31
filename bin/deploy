@@ -116,6 +116,18 @@ fi
 sha_tag="sha-$(git rev-parse --short HEAD)"
 echo "→ Deploy $SERVICE  mode=$mode  sha_tag=$sha_tag  host=$DEPLOY_HOST"
 
+# Un site statique n'a pas d'accessory `api` : les etapes image API, migrations
+# et reboot n'ont alors aucun sens. Plutot que d'echouer sur une image vide, on
+# les saute et `kamal deploy` fait tout le travail.
+if [[ "$API_IMAGE" == "-" ]]; then
+  if [[ "$mode" == "api" ]]; then
+    echo "❌ Ce projet n'a pas d'accessory API — --api-only ne s'applique pas." >&2
+    exit 64
+  fi
+  [[ "$mode" == "full" ]] && mode="web"
+  echo "→ Pas d'accessory API : deploiement web seul."
+fi
+
 if [[ "$mode" == "full" || "$mode" == "api" ]]; then
   ensure_registry_login
   ensure_remote_builder
