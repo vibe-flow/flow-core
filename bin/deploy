@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Déploiement d'un projet flow : build + push de l'image API (accessory Kamal),
+# migrations, puis `kamal deploy` qui build/push l'image web et redémarre tout.
+#
+#   bin/deploy              # complet (API + web + restart)
+#   bin/deploy --api-only   # rebuild + push API, puis restart de l'accessory
+#   bin/deploy --web-only   # kamal deploy seul, sans toucher à l'API
+#   bin/deploy --redeploy   # aucun rebuild — simple restart
+#
+# Ce fichier est identique dans tous les projets flow : il ne contient aucune
+# valeur propre au projet. Tout se lit dans `config/deploy.yml` (la config que
+# Kamal utilise déjà) et dans `.flow/project.json` (les UUID Bitwarden). Une
+# seule source par information, donc rien qui puisse se désynchroniser.
+#
+# Pré-requis : BWS_ACCESS_TOKEN exporté ; bws, kamal, jq, docker buildx installés.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# Kamal lit la sortie du serveur distant avec l'encodage de l'environnement.
+# Sous un shell sans locale — le cas des agents et de la plupart des CI — c'est
+# US-ASCII, et le premier accent renvoyé par le serveur tue le déploiement sur
+# `invalid byte sequence in US-ASCII`. On impose l'UTF-8 plutôt que d'en
+# dépendre.
+export LANG="${LANG:-en_US.UTF-8}"
+export RUBYOPT="${RUBYOPT:--EUTF-8}"
+
+# --- Tout ce qui distingue ce projet d'un autre, lu depuis config/deploy.yml ---
+read -r SERVICE API_IMAGE DEPLOY_HOST REMOTE_SSH SSH_TARGET NEEDS_BUILD_ENV <<<"$(ruby -ryaml -ruri -e '
+  cfg = YAML.safe_load(File.read("config/deploy.yml"), aliases: true)
+  service = cfg["service"]
+  image = cfg.dig("accessories", "api", "image").to_s
+  image = image.sub(/:[^:\/]+\z/, "")          # on retire le tag, on garde le dépôt
+  remote = cfg.dig("builder", "remote").to_s
+  if remote.empty?
+    hosts = cfg.dig("servers", "web", "hosts")
+    host  = hosts.is_a?(Array) ? hosts.first : hosts
+    user  = cfg.dig("ssh", "user") || "root"
+    remote = "ssh://#{user}@#{host}"
+  end
+  u = URI.parse(remote)
+  # Kamal ne source .kamal/secrets que pour les `env: secret:`. Les
+  # `builder.args`/`builder.secrets` en ERB sont evalues sur l env du
+  # process kamal initial : il faut les y mettre nous-memes.
+  needs_env = !(cfg.dig("builder", "args") || {}).empty? ||
+              !(cfg.dig("builder", "secrets") || []).empty?
+  puts [service, image.empty? ? "-" : image, u.host, remote, "#{u.user}@#{u.host}", needs_env].join(" ")
+')"
+readonly SERVICE API_IMAGE DEPLOY_HOST REMOTE_SSH SSH_TARGET NEEDS_BUILD_ENV
+readonly BUILDER_CONTEXT="flow-server"
+readonly BUILDER_NAME="${SERVICE}-amd64-builder"
+
+# `docker buildx --push` n'utilise pas les credentials de Kamal mais ceux du
+# Docker local : sans ce login, le push meurt sur un 401 après tout le build.
+ensure_registry_login() {
+  local user pass registry
+  registry="${API_IMAGE%%/*}"
+  user="$(bws secret list "$BWS_SHARED_PROJECT_ID" | jq -er '.[]|select(.key=="REGISTRY_USER")|.value')"
+  pass="$(bws secret list "$BWS_SHARED_PROJECT_ID" | jq -er '.[]|select(.key=="KAMAL_REGISTRY_PASSWORD")|.value')"
+  echo "$pass" | docker login "$registry" -u "$user" --password-stdin >/dev/null
+  echo "→ Registry $registry : connecté"
+}
+
+ensure_remote_builder() {
+  if ! docker context inspect "$BUILDER_CONTEXT" >/dev/null 2>&1; then
+    echo "→ Création docker context $BUILDER_CONTEXT ($REMOTE_SSH)"
+    docker context create "$BUILDER_CONTEXT" --docker "host=$REMOTE_SSH" >/dev/null
+  fi
+  if ! docker buildx inspect "$BUILDER_NAME" >/dev/null 2>&1; then
+    echo "→ Création buildx builder $BUILDER_NAME (docker-container, remote)"
+    docker buildx create --name "$BUILDER_NAME" --driver docker-container \
+      --platform linux/amd64 "$BUILDER_CONTEXT" >/dev/null
+    docker buildx inspect --bootstrap --builder "$BUILDER_NAME" >/dev/null
+  fi
+}
+
+mode="full"
+allow_dirty=false
+for arg in "$@"; do
+  case "$arg" in
+    --api-only)    mode="api"        ;;
+    --web-only)    mode="web"        ;;
+    --redeploy)    mode="redeploy"   ;;
+    --allow-dirty) allow_dirty=true  ;;
+    *) echo "usage: $0 [--api-only|--web-only|--redeploy] [--allow-dirty]" >&2; exit 64 ;;
+  esac
+done
+
+# Les images se construisent depuis le répertoire de travail, pas depuis le
+# commit : tout fichier modifié ou non suivi part en production tel quel. On
+# refuse plutôt que de publier en silence un chantier en cours.
+if [[ "$allow_dirty" == false ]] && [[ -n "$(git status --porcelain)" ]]; then
+  echo "❌ Arbre de travail non propre — ces fichiers partiraient en prod :" >&2
+  git status --short >&2
+  echo >&2
+  echo "   Commite, mets de côté, ou passe --allow-dirty si c'est voulu." >&2
+  echo "   Pour publier un commit précis sans toucher au chantier en cours :" >&2
+  echo "     git worktree add .worktrees/deploy <commit> --detach && cd .worktrees/deploy && bin/deploy" >&2
+  exit 1
+fi
+
+: "${BWS_ACCESS_TOKEN:?BWS_ACCESS_TOKEN missing — export-le dans ~/.zshrc}"
+
+BWS_PROJECT_ID="$(jq -er '.bws.project_id' .flow/project.json)"
+BWS_SHARED_PROJECT_ID="$(jq -er '.bws.shared_project_id' .flow/project.json)"
+export BWS_PROJECT_ID BWS_SHARED_PROJECT_ID
+
+# Sans ce sourcing, un `builder.args` du type `<%= ENV.fetch("VITE_X", "") %>`
+# arrive vide et Vite fige une chaine vide dans le bundle : la cle manque en
+# production sans qu'aucune etape n'ait echoue. On ne le fait que pour les
+# projets concernes, pour ne pas repandre les secrets ailleurs.
+if [[ "$NEEDS_BUILD_ENV" == "true" ]]; then
+  echo "→ Export des secrets BWS pour les builder.args…"
+  set -a; source .kamal/secrets; set +a
+fi
+
+sha_tag="sha-$(git rev-parse --short HEAD)"
+echo "→ Deploy $SERVICE  mode=$mode  sha_tag=$sha_tag  host=$DEPLOY_HOST"
+
+if [[ "$mode" == "full" || "$mode" == "api" ]]; then
+  ensure_registry_login
+  ensure_remote_builder
+  echo "→ Build + push ${API_IMAGE##*/} ($sha_tag, latest)…"
+  docker buildx build --platform linux/amd64 \
+    --builder "$BUILDER_NAME" \
+    --tag "${API_IMAGE}:latest" \
+    --tag "${API_IMAGE}:${sha_tag}" \
+    --file Dockerfile.api --push .
+
+  # Pull l'image fraîche sur le serveur (sinon kamal exec réutilise l'ancienne)
+  # puis applique les migrations AVANT de rebooter l'API.
+  echo "→ Pull image :latest sur le serveur…"
+  ssh "$SSH_TARGET" "docker pull ${API_IMAGE}:latest" >/dev/null
+
+  echo "→ prisma migrate deploy…"
+  kamal accessory exec api 'npx prisma migrate deploy'
+
+  # Une migration peut échouer sans faire échouer la commande. Rebooter l'API
+  # sur un schéma qui n'a pas bougé donne une panne difficile à lire — on
+  # s'arrête ici, l'ancienne version tourne encore.
+  echo "→ Vérification post-migrate…"
+  migrate_status="$(kamal accessory exec api 'npx prisma migrate status' 2>&1)"
+  echo "$migrate_status"
+  if grep -q "have not yet been applied" <<< "$migrate_status"; then
+    echo "❌ Migrations en attente après deploy — arrêt avant reboot API." >&2
+    exit 1
+  fi
+fi
+
+if [[ "$mode" == "full" || "$mode" == "web" ]]; then
+  echo "→ kamal deploy (build web + push + restart)…"
+  kamal deploy
+fi
+
+if [[ "$mode" == "full" || "$mode" == "api" ]]; then
+  echo "→ kamal accessory reboot api…"
+  kamal accessory reboot api
+fi
+
+if [[ "$mode" == "redeploy" ]]; then
+  echo "→ kamal redeploy (no rebuild)…"
+  kamal redeploy
+fi
+
+echo "✓ Déploiement terminé."
