@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Kamal v2 pre-deploy — tourne en local avant tout SSH. Echoue vite.
+#
+# Identique dans tous les projets flow : rien de propre au projet ici.
+set -euo pipefail
+
+for cmd in kamal bws jq docker ruby; do
+  command -v "$cmd" >/dev/null 2>&1 || {
+    echo "[pre-deploy] $cmd introuvable dans \$PATH" >&2
+    exit 1
+  }
+done
+
+: "${BWS_ACCESS_TOKEN:?[pre-deploy] BWS_ACCESS_TOKEN manquant — export-le dans ~/.zshrc}"
+
+# Un site statique n'a pas de projet BWS dedie : il ne consomme que les
+# identifiants de registry, qui vivent dans le projet partage. On exige donc
+# l'un OU l'autre, pas les deux.
+own="$(jq -r '.bws.project_id // empty' .flow/project.json 2>/dev/null || true)"
+shared="$(jq -r '.bws.shared_project_id // empty' .flow/project.json 2>/dev/null || true)"
+if [ -z "$own" ] && [ -z "$shared" ]; then
+  echo "[pre-deploy] .flow/project.json ne declare aucun projet Bitwarden (bws.project_id / bws.shared_project_id)" >&2
+  exit 1
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "[pre-deploy] ATTENTION : arbre de travail sale — du code non commite part en prod" >&2
+fi
+
+echo "[pre-deploy] OK  kamal=${KAMAL_VERSION:-?} hosts=${KAMAL_HOSTS:-?}"

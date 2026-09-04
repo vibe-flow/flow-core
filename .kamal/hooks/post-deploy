@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Kamal v2 post-deploy — resume, puis menage cible sur l'hote.
+#
+# Kamal prune deja les images dangling du service, mais laisse les containers
+# Exited des deploiements precedents. On les retire, en filtrant STRICTEMENT sur
+# le nom du service : le serveur heberge plusieurs projets, on ne touche jamais
+# a ceux des autres.
+#
+# Identique dans tous les projets flow : le service et l'hote se lisent dans
+# config/deploy.yml, jamais en dur.
+set -euo pipefail
+
+echo "[post-deploy] version=${KAMAL_VERSION:-?} runtime=${KAMAL_RUNTIME:-?}s hosts=${KAMAL_HOSTS:-?}"
+
+read -r SERVICE SSH_TARGET <<<"$(ruby -ryaml -ruri -e '
+  cfg = YAML.safe_load(File.read("config/deploy.yml"), aliases: true)
+  remote = cfg.dig("builder", "remote").to_s
+  if remote.empty?
+    hosts = cfg.dig("servers", "web", "hosts")
+    host  = hosts.is_a?(Array) ? hosts.first : hosts
+    remote = "ssh://#{cfg.dig("ssh", "user") || "root"}@#{host}"
+  end
+  u = URI.parse(remote)
+  puts [cfg["service"], "#{u.user}@#{u.host}"].join(" ")
+')"
+
+prune_cmd="
+  ids=\$(docker ps -aq --filter status=exited --filter name=^${SERVICE});
+  if [ -n \"\$ids\" ]; then docker rm \$ids >/dev/null; fi;
+  docker image prune -f --filter label=service=${SERVICE} >/dev/null 2>&1 || true;
+"
+if ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes "$SSH_TARGET" "$prune_cmd" 2>/dev/null; then
+  echo "[post-deploy] menage ${SERVICE} effectue sur ${SSH_TARGET#*@}"
+else
+  echo "[post-deploy] menage saute (ssh indisponible depuis ce hook)"
+fi
