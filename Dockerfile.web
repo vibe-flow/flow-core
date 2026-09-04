@@ -33,6 +33,7 @@ COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 # substitution a nos deux variables — sans lui, envsubst toucherait aussi aux
 # variables nginx ($uri, $host) si une variable d'environnement portait le meme nom.
 COPY infrastructure/nginx/nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY infrastructure/nginx/extra/ /etc/nginx/extra/
 ENV NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx \
     NGINX_ENVSUBST_FILTER="^(API_UPSTREAM|CLIENT_MAX_BODY_SIZE)$" \
     API_UPSTREAM=api:3000 \

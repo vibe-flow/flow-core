@@ -100,6 +100,12 @@ http {
             add_header Cache-Control "no-cache";
         }
 
+        # Point d'extension : un projet qui a besoin de routes en plus (un
+        # /uploads/ proxifie vers l'API, un endpoint tiers) depose un .conf dans
+        # infrastructure/nginx/extra/ plutot que de forker ce fichier. Le
+        # template reste alors identique partout et continue de se synchroniser.
+        include /etc/nginx/extra/*.conf;
+
         # SPA fallback - all routes go to index.html
         location / {
             try_files $uri $uri/ /index.html;
