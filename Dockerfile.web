@@ -1,0 +1,46 @@
+# Stage 1: deps (cached as long as lockfile doesn't change)
+FROM oven/bun:1-alpine AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+RUN bun install --frozen-lockfile
+
+# Stage 2: build
+FROM deps AS build
+WORKDIR /app
+# Le front appelle /api et /trpc en relatif : c'est nginx qui route vers l'API.
+# Un projet qui a besoin d'URL absolues, ou d'une cle publique (Mapbox, Stripe),
+# ajoute son propre ARG ici et le declare dans `builder.args` de deploy.yml.
+ARG VITE_API_URL=/api
+ARG VITE_TRPC_URL=/trpc
+# ARG -> ENV obligatoire : sans cette ligne Vite ne voit pas la variable au
+# moment du build et remplace `import.meta.env.VITE_X` par une chaine vide — la
+# cle manque en production sans qu'aucune etape n'ait echoue.
+ENV VITE_API_URL=${VITE_API_URL} \
+    VITE_TRPC_URL=${VITE_TRPC_URL}
+COPY . .
+RUN cd packages/shared && bun run build
+RUN bun run build:web
+
+# Stage 3: runtime
+FROM nginx:alpine
+COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+
+# La config nginx est un template : l'entrypoint de l'image officielle y
+# substitue les variables d'environnement au demarrage. Le filtre restreint la
+# substitution a nos deux variables — sans lui, envsubst toucherait aussi aux
+# variables nginx ($uri, $host) si une variable d'environnement portait le meme nom.
+COPY infrastructure/nginx/nginx.conf.template /etc/nginx/templates/nginx.conf.template
+ENV NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx \
+    NGINX_ENVSUBST_FILTER="^(API_UPSTREAM|CLIENT_MAX_BODY_SIZE)$" \
+    API_UPSTREAM=api:3000 \
+    CLIENT_MAX_BODY_SIZE=50M
+
+RUN chown -R nginx:nginx /usr/share/nginx/html \
+    && chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx \
+    && touch /var/run/nginx.pid && chown nginx:nginx /var/run/nginx.pid
+USER nginx
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

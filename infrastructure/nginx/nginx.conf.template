@@ -1,0 +1,115 @@
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    # Le manifeste PWA doit être servi avec son type, sinon il est ignoré et
+    # l'app ne s'installe pas sur l'écran d'accueil.
+    types {
+        application/manifest+json webmanifest;
+    }
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent"';
+
+    access_log /var/log/nginx/access.log main;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    # Docker embedded DNS — résout le nom du container API à chaque requête
+    # (pas au boot), pour qu'un reboot de l'accessory API ne donne pas
+    # de 502 jusqu'au prochain redeploy du web.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+
+        # `set` + variable force nginx à utiliser le resolver (DNS dynamique).
+        set $api_upstream "${API_UPSTREAM}";
+
+        # tRPC (streaming-aware: disable buffering)
+        location ^~ /trpc/ {
+            proxy_pass http://$api_upstream;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_read_timeout 3600s;
+        }
+
+        # REST API (health, auth, sse)
+        location ^~ /api/ {
+            proxy_pass http://$api_upstream;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+        }
+
+        # Static assets (hashed filenames from Vite) 
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+
+        # index.html must never be cached
+        location = /index.html {
+            expires off;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+
+        # Le service worker non plus : figé un an par la règle ci-dessus, il
+        # servirait éternellement la version installée le jour de sa mise en
+        # cache — plus aucune mise à jour ne passerait.
+        location = /sw.js {
+            expires off;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+        location = /registerSW.js {
+            expires off;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+        location = /manifest.webmanifest {
+            expires off;
+            add_header Cache-Control "no-cache";
+        }
+
+        # SPA fallback - all routes go to index.html
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Health check endpoint (web container itself — kamal-proxy healthcheck)
+        location = /health {
+            access_log off;
+            return 200 "OK";
+            add_header Content-Type text/plain;
+        }
+    }
+}
