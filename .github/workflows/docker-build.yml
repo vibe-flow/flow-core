@@ -1,0 +1,63 @@
+# Construit les deux images de production et vérifie qu'elles démarrent.
+#
+# Le développement tourne en tsx, qui compile à la volée : un défaut de build
+# (script manquant, chemin de nest-cli, paquet partagé en ESM) n'y est jamais
+# visible et n'apparaissait qu'au premier déploiement. Ce contrôle le fait
+# remonter au push.
+name: Images Docker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.${{ matrix.image }}
+          tags: flow-check-${{ matrix.image }}:ci
+          load: true
+          push: false
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      # Charger app.module parcourt tout le graphe de modules — dont le paquet
+      # partagé, là où la résolution casse — sans ouvrir de connexion : aucune
+      # base n'est nécessaire. Les valeurs ne servent qu'à passer EnvSchema, qui
+      # est validé à l'import. Un projet qui rend une variable obligatoire
+      # l'ajoute ici.
+      - name: L'API charge tous ses modules
+        if: matrix.image == 'api'
+        run: |
+          docker run --rm \
+            -e DATABASE_URL=postgresql://ci:ci@localhost:5432/ci \
+            -e REDIS_URL=redis://localhost:6379 \
+            -e JWT_SECRET=ci-smoke-secret-0123456789abcdef0123 \
+            -e JWT_REFRESH_SECRET=ci-smoke-secret-0123456789abcdef0123 \
+            --entrypoint node flow-check-api:ci \
+            -e "require('./dist/app.module'); console.log('API : modules chargés')"
+
+      # nginx résout l'upstream au démarrage : --add-host lui donne un `api`.
+      - name: Le web répond sur /health
+        if: matrix.image == 'web'
+        run: |
+          docker run -d --name web --add-host api:127.0.0.1 -p 8080:80 flow-check-web:ci
+          for _ in $(seq 1 15); do
+            curl -fsS http://localhost:8080/health && exit 0
+            sleep 1
+          done
+          docker logs web
+          exit 1
