@@ -1,4 +1,7 @@
-node_modules
+# Un motif sans **/ ne vise que la racine du contexte : sans ces lignes, le dist
+# local de packages/shared et d'apps/* partait dans l'image par `COPY . .`.
+**/node_modules
+**/dist
 .git
 .docker-build
 .playwright-mcp
