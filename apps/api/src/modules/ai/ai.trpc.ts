@@ -5,13 +5,18 @@ import { ChatCompletionSchema, EmbeddingSchema } from '@template-dev/shared'
 
 @Injectable()
 export class AiTrpc {
-  router: ReturnType<TrpcService['router']>
+  readonly router: ReturnType<AiTrpc['buildRouter']>
 
   constructor(
     @Inject(TrpcService) private readonly trpc: TrpcService,
     @Inject(AiService) private readonly aiService: AiService,
   ) {
-    this.router = this.trpc.router({
+    this.router = this.buildRouter()
+  }
+
+  // Type de retour inféré, jamais annoté : il porte les procédures jusqu'au client web.
+  private buildRouter() {
+    return this.trpc.router({
       status: this.trpc.protectedProcedure.query(() => {
         return {
           configured: this.aiService.isConfigured(),

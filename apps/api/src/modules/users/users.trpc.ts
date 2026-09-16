@@ -7,13 +7,18 @@ import { assertOwnerOrAdminTrpc } from '../auth/helpers/assert-owner'
 
 @Injectable()
 export class UsersTrpc {
-  router: ReturnType<TrpcService['router']>
+  readonly router: ReturnType<UsersTrpc['buildRouter']>
 
   constructor(
     @Inject(TrpcService) private readonly trpc: TrpcService,
     @Inject(UsersService) private readonly usersService: UsersService,
   ) {
-    this.router = this.trpc.router({
+    this.router = this.buildRouter()
+  }
+
+  // Type de retour inféré, jamais annoté : il porte les procédures jusqu'au client web.
+  private buildRouter() {
+    return this.trpc.router({
       list: this.trpc.protectedProcedure.query(async () => {
         return await this.usersService.findAll()
       }),

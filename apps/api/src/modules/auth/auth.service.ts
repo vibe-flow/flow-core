@@ -7,7 +7,7 @@ import { TRPCError } from '@trpc/server'
 import { PrismaService } from '../prisma/prisma.service'
 import { MailService } from '../mail/mail.service'
 import authConfigFactory from '../../config/auth.config'
-import type { AuthResponse } from '@template-dev/shared'
+import type { AuthResponse, UserRole } from '@template-dev/shared'
 
 @Injectable()
 export class AuthService {
@@ -189,7 +189,7 @@ export class AuthService {
   }
 
   async getDevUsers(): Promise<
-    Array<{ id: string; email: string; name: string | null; role: string }>
+    Array<{ id: string; email: string; name: string | null; role: UserRole }>
   > {
     if (!this.authConfig.devLogin || process.env.NODE_ENV !== 'development') {
       throw new UnauthorizedException('Dev-only endpoint')

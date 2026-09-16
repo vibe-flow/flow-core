@@ -77,6 +77,13 @@ Dans `apps/api/src/modules/<nom>/` :
 - Un service = logique métier. Un `.trpc.ts` = routes. Ne pas mélanger.
 - Les classes `.trpc.ts` sont enregistrées dans `TrpcModule`, **pas** dans leur propre module
 - Procédures tRPC : `trpc.procedure` (public), `trpc.protectedProcedure` (auth), `trpc.adminProcedure` (admin)
+- **Ne jamais annoter le type d'un routeur** (`router: ReturnType<TrpcService['router']>`) : c'est la signature générique de `router()`, pas le routeur construit — `AppRouter` perd toutes ses procédures et le client web n'est plus typé (« collides with a built-in method », callbacks en `any`). Construire le routeur dans une méthode au type inféré :
+  ```typescript
+  readonly router: ReturnType<FooTrpc['buildRouter']>
+  constructor(/* @Inject(...) */) { this.router = this.buildRouter() }
+  private buildRouter() { return this.trpc.router({ /* procédures */ }) }
+  ```
+- Dans une procédure, l'utilisateur courant est `ctx.user.userId` (le `JwtPayload` n'a pas de champ `id`)
 - Toujours valider avec `.input(ZodSchema)` — jamais de validation manuelle
 - Utiliser `TRPCError` (pas les exceptions NestJS) dans les procédures tRPC
 - Importer les schemas Zod depuis `@<projet>/shared`, jamais les redéfinir localement

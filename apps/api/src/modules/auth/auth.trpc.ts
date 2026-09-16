@@ -12,14 +12,19 @@ import {
 
 @Injectable()
 export class AuthTrpc {
-  router: ReturnType<TrpcService['router']>
+  readonly router: ReturnType<AuthTrpc['buildRouter']>
 
   constructor(
     @Inject(TrpcService) private readonly trpc: TrpcService,
     @Inject(AuthService) private readonly authService: AuthService,
     @Inject(UsersService) private readonly usersService: UsersService,
   ) {
-    this.router = this.trpc.router({
+    this.router = this.buildRouter()
+  }
+
+  // Type de retour inféré, jamais annoté : il porte les procédures jusqu'au client web.
+  private buildRouter() {
+    return this.trpc.router({
       sendMagicLink: this.trpc.procedure.input(SendMagicLinkSchema).mutation(async ({ input }) => {
         return await this.authService.sendMagicLink(input.email)
       }),

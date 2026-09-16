@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import type { BulkSetUserPreferencesInput } from '@template-dev/shared'
 
 @Injectable()
 export class UserPreferencesService {
@@ -29,7 +30,7 @@ export class UserPreferencesService {
 
   async bulkSet(
     userId: string,
-    preferences: Array<{ key: string; value: unknown }>,
+    preferences: BulkSetUserPreferencesInput['preferences'],
   ): Promise<void> {
     await this.prisma.$transaction(
       preferences.map((pref) =>

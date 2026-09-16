@@ -11,7 +11,7 @@ import { createContext } from './trpc.context'
 
 @Injectable()
 export class TrpcRouter implements OnApplicationBootstrap {
-  appRouter: ReturnType<TrpcService['router']>
+  readonly appRouter: ReturnType<TrpcRouter['buildAppRouter']>
 
   constructor(
     @Inject(TrpcService) private readonly trpc: TrpcService,
@@ -21,8 +21,18 @@ export class TrpcRouter implements OnApplicationBootstrap {
     @Inject(SettingsTrpc) private readonly settingsTrpc: SettingsTrpc,
     @Inject(UserPreferencesTrpc) private readonly userPreferencesTrpc: UserPreferencesTrpc,
   ) {
-    // Assemble modular routers
-    this.appRouter = this.trpc.router({
+    this.appRouter = this.buildAppRouter()
+  }
+
+  /**
+   * Assemble modular routers.
+   *
+   * Le type de retour doit rester inféré : c'est lui que `AppRouter` expose au client web.
+   * Annoter `ReturnType<TrpcService['router']>` le remplace par la signature générique de
+   * `router()` et fait perdre tout le typage côté web (« collides with a built-in method »).
+   */
+  private buildAppRouter() {
+    return this.trpc.router({
       auth: this.authTrpc.router,
       users: this.usersTrpc.router,
       ai: this.aiTrpc.router,

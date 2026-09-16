@@ -25,9 +25,9 @@ export function useEntityInvalidation(options?: { exclude?: string[] }) {
         const event = data as EntityChangedEvent
         if (options?.exclude?.includes(event.entity)) return
         const routerName = ENTITY_ROUTER_MAP[event.entity]
-        if (routerName && (utils as Record<string, { invalidate: () => void }>)[routerName]) {
-          ;(utils as Record<string, { invalidate: () => void }>)[routerName].invalidate()
-        }
+        // Accès dynamique par nom de routeur : `utils` est typé, on le relâche ici seulement.
+        const routers = utils as unknown as Record<string, { invalidate: () => void } | undefined>
+        if (routerName) routers[routerName]?.invalidate()
       },
       [utils, excludeKey],
     ),
