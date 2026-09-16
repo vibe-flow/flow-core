@@ -46,6 +46,9 @@
     "prisma:seed": "bunx prisma db seed",
     "prisma:studio": "bunx prisma studio"
   },
+  "prisma": {
+    "seed": "bun prisma/seed.ts"
+  },
   "type": "module",
   "workspaces": [
     "apps/*",

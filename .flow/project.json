@@ -1,5 +1,14 @@
 {
   "id": "",
   "name": "vibe-stack",
-  "stack": "vibe-stack"
+  "stack": "vibe-stack",
+  "bws": {
+    "project_id": "",
+    "shared_project_id": ""
+  },
+  "dev": {
+    "database": "",
+    "backend_port": 3000,
+    "frontend_port": 5173
+  }
 }

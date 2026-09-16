@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Lance une commande dans l'environnement de dev local du projet.
+#
+#   bin/dev                                      # API + web (bun run dev)
+#   bin/dev bunx prisma migrate dev --name xyz   # toute commande qui lit l'env
+#   bin/dev bun prisma/seed.ts
+#
+# Ce fichier est identique dans tous les projets flow, comme bin/deploy : aucune
+# valeur propre au projet ici. Zéro fichier .env : l'environnement est composé à
+# chaque lancement, depuis trois sources, par ordre de priorité :
+#
+#   1. le shell — surcharge ponctuelle (`BACKEND_PORT=3999 bin/dev`) ;
+#   2. la config de dev, en clair, lue dans `.flow/project.json` (clé `dev`) :
+#      la base locale et les ports attribués par le portal de local-services ;
+#   3. les secrets du projet BSM (`bws.project_id`), pour les SEULES clés que
+#      1 et 2 ne définissent pas.
+#
+# 2 passe devant 3 à dessein : en BSM, DATABASE_URL est l'URL de production
+# (hôte Docker du serveur, injoignable d'ici). `bws run` l'imposerait par-dessus
+# la valeur locale, et l'API mourrait au démarrage.
+#
+# Pré-requis : jq, bws et BWS_ACCESS_TOKEN ; Postgres et Redis de local-services.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+project=.flow/project.json
+database="$(jq -r '.dev.database // empty' "$project")"
+if [[ -z "$database" ]]; then
+  echo "bin/dev : pas de base de dev dans $project (clé dev.database) — voir /vibe-stack:init-project" >&2
+  exit 1
+fi
+
+export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/${database}?schema=public}"
+export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
+export BACKEND_PORT="${BACKEND_PORT:-$(jq -r '.dev.backend_port // 3000' "$project")}"
+export FRONTEND_PORT="${FRONTEND_PORT:-$(jq -r '.dev.frontend_port // 5173' "$project")}"
+export FRONTEND_URL="${FRONTEND_URL:-http://localhost:${FRONTEND_PORT}}"
+# Connexion en un clic avec les comptes du seed : le web la conditionne en plus à
+# import.meta.env.DEV, elle n'existe donc jamais dans un build de production.
+export AUTH_DEV_LOGIN="${AUTH_DEV_LOGIN:-true}"
+export VITE_DEV_LOGIN="${VITE_DEV_LOGIN:-true}"
+
+bws_project="$(jq -r '.bws.project_id // empty' "$project")"
+if [[ -n "$bws_project" ]]; then
+  : "${BWS_ACCESS_TOKEN:?bin/dev : BWS_ACCESS_TOKEN manquant, impossible de lire les secrets du projet BSM}"
+  secrets="$(bws secret list "$bws_project" --output json)"
+  # Valeurs en base64 : un secret peut contenir tabulations et sauts de ligne.
+  while IFS=$'\t' read -r key value; do
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    [[ -n "${!key+set}" ]] && continue
+    export "$key=$(printf '%s' "$value" | base64 --decode)"
+  done < <(printf '%s' "$secrets" | jq -r '.[] | [.key, (.value | @base64)] | @tsv')
+fi
+
+(($#)) || set -- bun run dev
+exec "$@"

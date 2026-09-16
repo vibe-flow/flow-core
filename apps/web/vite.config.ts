@@ -22,6 +22,9 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: frontendPort,
+      // Échouer bruyamment plutôt que glisser en silence sur le port suivant : le
+      // proxy garderait sa cible et l'on testerait, au mieux, l'app d'à côté.
+      strictPort: true,
       host: true,
       allowedHosts: true,
       proxy: {

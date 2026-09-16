@@ -1,6 +1,6 @@
 # Conventions `flow`
 
-> **Fichier managé** — ne pas éditer à la main. Synchronisé par `/flow:update` depuis `flow-core`.
+> **Fichier managé** — ne pas éditer à la main. Synchronisé par `/vibe-stack:sync-vibe-stack` depuis `flow-core`.
 > Source de vérité : [CDC `flow` §6 et §7](https://github.com/vibe-flow/flow-core/blob/main/README.md).
 
 Conventions transversales de l'écosystème `flow`. Ce fichier est importé par le `CLAUDE.md` racine et chargé automatiquement dans le contexte Claude Code à chaque session.
@@ -37,7 +37,7 @@ Conventions transversales de l'écosystème `flow`. Ce fichier est importé par 
 
 ## Modules optionnels — quand y penser
 
-Les briques de [flow-modules](https://github.com/vibe-flow/flow-modules) s'importent via `/flow:import-module <nom>`. Elles ne sont pas dans le gabarit parce qu'elles ne servent pas à tout le monde — mais certaines se décident **au cadrage**, pas six mois plus tard.
+Les briques de [flow-modules](https://github.com/vibe-flow/flow-modules) s'importent via `/vibe-stack:import-module <nom>`. Elles ne sont pas dans le gabarit parce qu'elles ne servent pas à tout le monde — mais certaines se décident **au cadrage**, pas six mois plus tard.
 
 | Y penser quand…                                                                   | Module                                                                                           |
 | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -121,7 +121,7 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 - **Utiliser `bun run lint:check`** (ESLint, léger)
 - **Éviter `bunx tsc --noEmit`** (peut crash OOM sur gros projets — réservé au CI dans un job dédié si nécessaire)
 - `bun run dev` fonctionne (tsx compile à la volée)
-- **`tsx watch` ne recharge PAS sur `.env`** — il ne surveille que `src/`. Toute modification d'une variable d'environnement impose un **redémarrage complet de l'API** : sans ça on débogue un comportement qui vient d'une config déjà remplacée en mémoire.
+- **`tsx watch` ne recharge PAS l'environnement** — il ne surveille que `src/`. Toute modification d'une variable d'environnement impose un **redémarrage complet de l'API** : sans ça on débogue un comportement qui vient d'une config déjà remplacée en mémoire.
 
 ## Secrets & Config
 
@@ -129,11 +129,11 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 
 ### Trois catégories, trois emplacements
 
-| Type                                                        | Où ça vit                                                                               | Exemple                                                     |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **Secret** (sensible, ne doit pas fuiter)                   | Bitwarden Secret Manager (BSM), déclaré dans `.kamal/secrets`                           | `DATABASE_URL`, `JWT_SECRET`, `BREVO_API_KEY`               |
-| **Config par environnement** (varie dev/prod, non-sensible) | `config/deploy.yml` → `env.clear` pour la prod ; defaults `??` dans le code pour le dev | `FRONTEND_URL`, `NODE_ENV`, `LOG_LEVEL`, `LITELLM_BASE_URL` |
-| **Config statique** (jamais ne change)                      | Code en dur (`config/*.ts`, `vite.config.ts`)                                           | constantes métier, pagination max                           |
+| Type                                                        | Où ça vit                                                                                     | Exemple                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **Secret** (sensible, ne doit pas fuiter)                   | Bitwarden Secret Manager (BSM), déclaré dans `.kamal/secrets`                                 | `DATABASE_URL`, `JWT_SECRET`, `BREVO_API_KEY`               |
+| **Config par environnement** (varie dev/prod, non-sensible) | `config/deploy.yml` → `env.clear` pour la prod ; `bin/dev` + `.flow/project.json` pour le dev | `FRONTEND_URL`, `NODE_ENV`, `LOG_LEVEL`, `LITELLM_BASE_URL` |
+| **Config statique** (jamais ne change)                      | Code en dur (`config/*.ts`, `vite.config.ts`)                                                 | constantes métier, pagination max                           |
 
 **Critère simple** : si tu peux le push sur GitHub en clair sans problème → c'est de la config, pas un secret.
 
@@ -143,7 +143,7 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 - **Noms de secrets simples, sans préfixe** : `DATABASE_URL`, `JWT_SECRET`, `VITE_MAPBOX_TOKEN`… Chaque app ayant son projet dédié, il n'y a rien à désambiguïser. (L'ancien préfixe `<service>/<KEY>` était un contournement du plafond 3 projets — abandonné.)
 - **Un seul machine account partagé** (token `BWS_ACCESS_TOKEN`, dans `~/.zshrc`) avec accès à tous les projets. L'isolation se fait au niveau **projet**, pas au niveau machine account. Un machine account par projet ne serait qu'un durcissement sécurité optionnel (réduire le périmètre d'un token fuité) — non requis aujourd'hui.
 - En CI : `BWS_ACCESS_TOKEN` est le seul secret GitHub Actions à configurer ; tout le reste vient de BSM.
-- En dev local : **`bws run --project-id <uuid> -- bun dev`** (UUID = celui de `.flow/project.json`). Le `--project-id` est **obligatoire** : sans lui, `bws run` agrège tous les projets visibles par le machine account partagé → collision sur les clés homonymes (ex. `VITE_MAPBOX_TOKEN` présent dans plusieurs projets).
+- En dev local : **`bin/dev`**, qui lit les secrets du seul projet de `.flow/project.json` (voir « Dev local » ci-dessous). Ne pas lancer `bws run` sans `--project-id` : il agrège tous les projets visibles par le machine account partagé → collision sur les clés homonymes (ex. `VITE_MAPBOX_TOKEN` présent dans plusieurs projets).
 
 ### Fichier `.kamal/secrets` (versionné)
 
@@ -182,20 +182,21 @@ JWT_SECRET=$(kamal secrets extract JWT_SECRET ${SECRETS})
 2. `kamal deploy` (re-fetch automatique)
 3. Done. Aucun fichier à toucher.
 
-### Dev local — defaults dans le code
+### Dev local — `bin/dev`
 
-Pour que `bun dev` marche sans config préalable, le code définit des defaults dev via `??` :
+Tout lancement local passe par **`bin/dev`** : `bin/dev` seul démarre API + web, `bin/dev <commande>` exécute n'importe quelle commande dans le même environnement (`bin/dev bunx prisma migrate dev`, `bin/dev bun prisma/seed.ts`, `bin/dev bunx prisma studio`). Comme `bin/deploy`, le script est **identique dans tous les projets** et ne contient aucune valeur propre au projet. Il compose l'environnement à chaque lancement, par ordre de priorité :
 
-```typescript
-// apps/api/src/config/app.config.ts
-export const appConfig = {
-  port: parseInt(process.env.PORT ?? '3000'),
-  frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5173',
-  databaseUrl: process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/dev',
-}
-```
+1. **le shell** — surcharge ponctuelle : `BACKEND_PORT=3999 bin/dev` ;
+2. **la config de dev en clair**, lue dans `.flow/project.json` → clé `dev` : `database` (base du Postgres de `local-services`) et `backend_port` / `frontend_port` (attribués par le portal de `local-services`, qui route aussi `<slug>.localhost`) ; `REDIS_URL`, `FRONTEND_URL` et la connexion de dev s'en déduisent ;
+3. **les secrets du projet BSM** (`bws.project_id`), pour les seules clés que 1 et 2 ne définissent pas.
 
-Pour utiliser les VRAIS secrets en dev (Stripe test, etc.) : `bws run --project-id <uuid> -- bun dev` (UUID depuis `.flow/project.json`).
+**Pourquoi 2 passe devant 3** : en BSM, `DATABASE_URL` est l'URL de **production** (`server-postgres`, un hôte du réseau Docker du serveur). `bws run` l'imposerait par-dessus la valeur locale et l'API mourrait au démarrage (`P1001`).
+
+**Pourquoi pas de valeurs par défaut dans le code** : `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET` et `JWT_REFRESH_SECRET` restent **obligatoires** dans `EnvSchema`. Une prod à qui il manque une variable doit refuser de démarrer, pas viser `localhost` ou signer ses jetons avec une clé connue de tous. Et une valeur par défaut dans le code n'atteint pas la CLI Prisma, qui lit `DATABASE_URL` elle-même — `bin/dev` couvre les deux.
+
+**Ports** : Vite est en `strictPort`. Un port déjà pris fait échouer le démarrage au lieu de glisser en silence sur le suivant, ce qui laissait le proxy viser l'ancienne API — et l'on testait l'app d'à côté.
+
+**Projets antérieurs** : un `.env` local non versionné (écrit par l'ancien hook du plugin ou le portal) reste lu par NestJS et Prisma, mais les variables exportées par `bin/dev` priment.
 
 ### Frontend Vite — vars build-time
 
@@ -210,19 +211,20 @@ Les `VITE_*` sont injectées au build (pas au runtime). Pour la prod, déclarer 
 - Dépendances hors workspace (chaque package doit être dans le monorepo Bun)
 - `Jest` → utiliser Vitest
 - `tsc --noEmit` pour type-checking → utiliser `bun run lint:check`
-- **Fichiers `.env*`** dans le repo (`.env`, `.env.local`, `.env.prod`, `.env.example`, etc.) → tout passe par BSM + `config/deploy.yml` + defaults code. Voir section "Secrets & Config".
+- **Fichiers `.env*`** (`.env`, `.env.local`, `.env.prod`, `.env.example`, etc.) → tout passe par BSM + `config/deploy.yml` + `bin/dev`. Voir section "Secrets & Config".
 - **Secrets en clair** dans le repo (hard-coded keys, etc.) → BSM uniquement.
 
 ## Dossier `.flow/`
 
 Pièce charnière entre un projet et l'écosystème `flow`. Versionné dans le repo du projet.
 
-| Fichier             | Rôle                                                                                                                                                                                                                        | Géré par                                                               |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `conventions.md`    | Ce fichier — conventions transversales. Importé en première ligne du `CLAUDE.md` racine                                                                                                                                     | `/flow:update` — **jamais édité à la main**                            |
-| `project.json`      | Identité du projet : `id`, `name`, `stack`, et les deux UUID Bitwarden (`bws.project_id`, `bws.shared_project_id`)                                                                                                          | Dev (init par `/flow:new-project`)                                     |
-| `bin/deploy`        | Script de déploiement (hors `.flow/`) — **identique dans tous les projets**, ne lit que `config/deploy.yml` et `project.json`                                                                                               | flow-core — **jamais édité dans un projet**                            |
-| `config/deploy.yml` | Config Kamal (hors `.flow/`) : service, image, hosts, accessory API, registry                                                                                                                                               | `/vibe-stack:deploy` (1re mise en ligne), puis dev                     |
-| `.kamal/secrets`    | Liste déclarative des secrets attendus (versionné, valeurs en BSM)                                                                                                                                                          | `/vibe-stack:deploy` (1re mise en ligne), puis à chaque nouveau secret |
-| `flow-lock.json`    | Tracking du commit `flow-core` synchronisé + commits des modules importés                                                                                                                                                   | `/flow:update`, `/flow:import-module`, `/flow:upstream`                |
-| `deploy.json`       | **Déprécié** — recopiait le host, le registry et les domaines déjà présents dans `config/deploy.yml`, que rien ne resynchronisait. Ses UUID BSM ont rejoint `project.json` ; à supprimer une fois `.kamal/secrets` repointé | —                                                                      |
+| Fichier                | Rôle                                                                                                                                                                                                                        | Géré par                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `conventions.md`       | Ce fichier — conventions transversales. Importé en première ligne du `CLAUDE.md` racine                                                                                                                                     | `/vibe-stack:sync-vibe-stack` — **jamais édité à la main**                                    |
+| `project.json`         | Identité du projet : `id`, `name`, `stack`, les deux UUID Bitwarden (`bws.project_id`, `bws.shared_project_id`) et la config de dev lue par `bin/dev` (`dev.database`, `dev.backend_port`, `dev.frontend_port`)             | Dev (init par `/vibe-stack:init-project`)                                                     |
+| `bin/deploy`           | Script de déploiement (hors `.flow/`) — **identique dans tous les projets**, ne lit que `config/deploy.yml` et `project.json`                                                                                               | flow-core — **jamais édité dans un projet**                                                   |
+| `bin/dev`              | Lancement local (hors `.flow/`) — **identique dans tous les projets**, ne lit que `project.json` et le projet BSM                                                                                                           | flow-core — **jamais édité dans un projet**                                                   |
+| `config/deploy.yml`    | Config Kamal (hors `.flow/`) : service, image, hosts, accessory API, registry                                                                                                                                               | `/vibe-stack:deploy` (1re mise en ligne), puis dev                                            |
+| `.kamal/secrets`       | Liste déclarative des secrets attendus (versionné, valeurs en BSM)                                                                                                                                                          | `/vibe-stack:deploy` (1re mise en ligne), puis à chaque nouveau secret                        |
+| `vibe-stack-lock.json` | Tracking du commit `flow-core` synchronisé + commits des modules importés                                                                                                                                                   | `/vibe-stack:sync-vibe-stack`, `/vibe-stack:import-module`, `/vibe-stack:upstream-vibe-stack` |
+| `deploy.json`          | **Déprécié** — recopiait le host, le registry et les domaines déjà présents dans `config/deploy.yml`, que rien ne resynchronisait. Ses UUID BSM ont rejoint `project.json` ; à supprimer une fois `.kamal/secrets` repointé | —                                                                                             |
