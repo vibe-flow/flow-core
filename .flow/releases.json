@@ -1,5 +1,14 @@
 [
   {
+    "version": "3.0.0",
+    "date": "2026-09-21",
+    "commit": "2d40674921bb7e871e9b99a79c5431d91febcd3d",
+    "summary": "Toute app est une PWA qui se met à jour au changement de page ; bin/dev compose l'environnement local sans fichier .env ; build Docker et CI fiabilisés.",
+    "severity": "critical",
+    "migration": false,
+    "integration_notes": "PWA (module → core) : si le projet a le module pwa (modules.pwa dans .flow/vibe-stack-lock.json, ou vite.pwa.ts / lib/pwa-update.ts présents), remplacer pwa-update.ts par lib/mise-a-jour.ts + components/MiseAJour.tsx (registerType « prompt »), garder son manifeste et ses icônes, retirer pwa du lock. Sinon : ajouter l'ensemble, puis personnaliser manifest.webmanifest et icon.svg aux couleurs du projet et regénérer les PNG (scripts/make-icons.sh). Vérifier que le template nginx du projet a les règles sw.js / registerSW.js / manifest.webmanifest.\n\nDev local (changement de paradigme, 4a92dd9) : plus de valeurs par défaut `??` pour DATABASE_URL, REDIS_URL et les secrets JWT — bin/dev lit la base et les ports de dev dans .flow/project.json (clé `dev`) puis complète depuis BSM. Un projet qui démarrait avec des défauts dans le code doit déclarer sa clé `dev` avant d'adopter bin/dev."
+  },
+  {
     "version": "2.0.0",
     "date": "2026-03-30",
     "commit": "694217fb789abc2b726f1c1766b21cb63b941736",
