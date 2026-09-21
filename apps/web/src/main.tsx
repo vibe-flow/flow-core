@@ -6,6 +6,10 @@ import App from './App'
 import './index.css'
 
 import { trpc, createTrpcClient } from './lib/trpc'
+import { surveillerMisesAJour } from './lib/mise-a-jour'
+
+// Service worker et nouvelles versions : appliquées au changement de page (components/MiseAJour).
+surveillerMisesAJour()
 
 const queryClient = new QueryClient({
   defaultOptions: {

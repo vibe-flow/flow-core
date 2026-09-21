@@ -39,17 +39,24 @@ Conventions transversales de l'écosystème `flow`. Ce fichier est importé par 
 
 Les briques de [flow-modules](https://github.com/vibe-flow/flow-modules) s'importent via `/vibe-stack:import-module <nom>`. Elles ne sont pas dans le gabarit parce qu'elles ne servent pas à tout le monde — mais certaines se décident **au cadrage**, pas six mois plus tard.
 
-| Y penser quand…                                                                   | Module                                                                                           |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| l'app sera utilisée **au téléphone pour de vrai** (terrain, déplacement, atelier) | **`pwa`** — installable sur l'écran d'accueil, plein écran, et **qui se met à jour toute seule** |
-| connexion sans mot de passe                                                       | `magic-link`                                                                                     |
-| saisie d'adresses postales                                                        | `address-autocomplete`                                                                           |
-| exposer les routes tRPC à un assistant                                            | `mcp`                                                                                            |
-| agents / graphes LLM                                                              | `langgraph`, `langgraph-debug`                                                                   |
-| interface type éditeur (onglets, split)                                           | `editor-tabs`, `app-ux-defaults`                                                                 |
-| détection auto des réglages IMAP/SMTP                                             | `mail-discovery`                                                                                 |
+| Y penser quand…                         | Module                           |
+| --------------------------------------- | -------------------------------- |
+| connexion sans mot de passe             | `magic-link`                     |
+| saisie d'adresses postales              | `address-autocomplete`           |
+| exposer les routes tRPC à un assistant  | `mcp`                            |
+| agents / graphes LLM                    | `langgraph`, `langgraph-debug`   |
+| interface type éditeur (onglets, split) | `editor-tabs`, `app-ux-defaults` |
+| détection auto des réglages IMAP/SMTP   | `mail-discovery`                 |
 
-**`pwa` est le plus souvent oublié**, et c'est celui qui coûte le plus cher à rattraper : sans lui, une app pensée pour le mobile s'ouvre dans un onglet parmi trente, sous une barre d'adresse qui mange l'écran — et, service worker mal réglé, peut rester bloquée des semaines sur une version périmée chez l'utilisateur. Le poser au départ prend une heure.
+## PWA et mises à jour — dans le gabarit
+
+Toute app est une **PWA** (ex-module `pwa`, intégré au core en v3.0.0) : installable sur un écran d'accueil, et surtout **toujours à jour** — sans service worker, un onglet ouvert depuis la veille garde le code de la veille.
+
+- **Quand une version est publiée**, l'onglet le découvre (au retour de visibilité, toutes les 10 min) et l'**applique au prochain changement de page** — on navigue, rien n'est en cours de saisie. En attendant, un bandeau « Une nouvelle version est disponible — Mettre à jour ». Un changement de `?filtre` n'est pas un changement de page. Code : `vite.pwa.ts`, `lib/mise-a-jour.ts`, `components/MiseAJour.tsx`.
+- **À personnaliser à la création du projet**, avec le titre : `public/manifest.webmanifest` (nom, couleurs) et `public/icon.svg`, puis `scripts/make-icons.sh apps/web/public/icon.svg apps/web/public` (fond plein, motif dans les 80 % centraux).
+- **Ne pas toucher** aux règles `sw.js` / `registerSW.js` / `manifest.webmanifest` du template nginx : un service worker mis en cache long bloque l'app sur une version périmée, sans rattrapage possible à distance.
+- **Pas de hors-ligne** : seuls les fichiers du build sont précachés, jamais les données.
+- Le service worker ne tourne pas en `bun dev` : vérifier sur un build servi (`vite preview`).
 
 ## Workflow Git
 

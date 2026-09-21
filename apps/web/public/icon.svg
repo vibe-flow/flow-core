@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Icône générique du gabarit : à remplacer par celle du projet, puis relancer
+       scripts/make-icons.sh. Fond plein (iOS), motif dans les 80 % centraux (maskable). -->
+  <rect width="512" height="512" fill="#1f2937"/>
+  <path d="M256 128 L352 256 L256 384 L160 256 Z" fill="#ffffff"/>
+</svg>

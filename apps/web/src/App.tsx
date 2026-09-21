@@ -5,6 +5,7 @@ import { useSseStore } from './stores/sse.store'
 import { useEntityInvalidation } from './hooks/useEntityInvalidation'
 import { usePreferencesSync } from './hooks/use-preferences-sync'
 import AppLayout from './components/layout/AppLayout'
+import MiseAJour from './components/MiseAJour'
 import LoginPage from './pages/LoginPage'
 import VerifyPage from './pages/VerifyPage'
 import DashboardPage from './pages/DashboardPage'
@@ -76,6 +77,7 @@ function App() {
   return (
     <>
       <SseManager />
+      <MiseAJour />
       <Routes>
         <Route
           path="/login"

@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { pwaPlugin } from './vite.pwa'
 
 export default defineConfig(({ mode }) => {
   // Load env from monorepo root
@@ -13,7 +14,7 @@ export default defineConfig(({ mode }) => {
   const backendTarget = `http://localhost:${backendPort}`
 
   return {
-    plugins: [react()],
+    plugins: [react(), pwaPlugin()],
     envDir,
     resolve: {
       alias: {
