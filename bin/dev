@@ -43,7 +43,9 @@ export VITE_DEV_LOGIN="${VITE_DEV_LOGIN:-true}"
 bws_project="$(jq -r '.bws.project_id // empty' "$project")"
 if [[ -n "$bws_project" ]]; then
   : "${BWS_ACCESS_TOKEN:?bin/dev : BWS_ACCESS_TOKEN manquant, impossible de lire les secrets du projet BSM}"
-  secrets="$(bws secret list "$bws_project" --output json)"
+  # --color no : sans lui, bws colore son JSON quand FORCE_COLOR=1 (app Claude),
+  # jq échoue et l'API démarre sans aucun secret.
+  secrets="$(bws secret list "$bws_project" --output json --color no)"
   # Valeurs en base64 : un secret peut contenir tabulations et sauts de ligne.
   while IFS=$'\t' read -r key value; do
     [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
