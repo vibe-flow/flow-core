@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { UserSchema, UpdateUserSchema, UserRoleSchema } from './user.schema'
+import { UserSchema, UpdateUserSchema, UpdateSelfSchema, UserRoleSchema } from './user.schema'
 
 describe('UserSchema', () => {
   it('accepts a valid user with status', () => {
@@ -63,6 +63,21 @@ describe('UpdateUserSchema', () => {
   it('accepts empty object', () => {
     const result = UpdateUserSchema.safeParse({})
     expect(result.success).toBe(true)
+  })
+})
+
+describe('UpdateSelfSchema', () => {
+  it('accepts a name', () => {
+    expect(UpdateSelfSchema.safeParse({ name: 'Bob' }).success).toBe(true)
+  })
+
+  it('rejects a role, even alongside a valid name', () => {
+    expect(UpdateSelfSchema.safeParse({ role: 'ADMIN' }).success).toBe(false)
+    expect(UpdateSelfSchema.safeParse({ name: 'Bob', role: 'ADMIN' }).success).toBe(false)
+  })
+
+  it('rejects an email', () => {
+    expect(UpdateSelfSchema.safeParse({ email: 'bob@test.invalid' }).success).toBe(false)
   })
 })
 
