@@ -36,6 +36,7 @@
     "build:api": "bun run --filter=@template-dev/api build",
     "build:web": "bun run --filter=@template-dev/web build",
     "test": "bun run --filter=* test",
+    "typecheck": "bun run --filter=@template-dev/web typecheck",
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,json,md,css}\"",

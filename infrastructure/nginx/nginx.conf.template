@@ -45,6 +45,22 @@ http {
 
         client_max_body_size ${CLIENT_MAX_BODY_SIZE};
 
+        # IP réelle du visiteur.
+        #
+        # Chaîne en production : visiteur → kamal-proxy (TLS) → ce nginx → API (/api, /trpc).
+        # kamal-proxy (forward_headers: false, le défaut avec ssl) jette l'X-Forwarded-For
+        # envoyé par le visiteur et en pose un neuf avec la seule adresse TCP qu'il a vue.
+        # Sans ce bloc, nginx voit kamal-proxy comme client : X-Real-IP porte l'adresse de
+        # kamal-proxy, et tous les visiteurs partagent le même compteur de limitation de débit.
+        #
+        # nginx ne croit l'X-Forwarded-For que s'il vient d'un conteneur Docker (kamal-proxy),
+        # et n'en garde que la DERNIÈRE valeur, celle que kamal-proxy a posée : une adresse
+        # forgée par le visiteur n'est jamais retenue. $remote_addr devient l'adresse du
+        # visiteur, transmise en X-Real-IP — le seul en-tête que l'API lit (lib/auth-ip.ts).
+        set_real_ip_from 172.16.0.0/12;
+        real_ip_header X-Forwarded-For;
+        real_ip_recursive off;
+
         # `set` + variable force nginx à utiliser le resolver (DNS dynamique).
         set $api_upstream "${API_UPSTREAM}";
 

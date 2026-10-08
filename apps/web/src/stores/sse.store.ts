@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { useAuthStore } from './auth.store'
 
 type SseHandler = (data: unknown) => void
 
@@ -9,8 +8,9 @@ interface SseState {
   eventSource: EventSource | null
   handlers: Map<string, Set<SseHandler>>
   reconnectAttempts: number
+  shouldReconnect: boolean
 
-  connect: (token: string) => void
+  connect: () => void
   disconnect: () => void
   subscribe: (type: string, handler: SseHandler) => void
   unsubscribe: (type: string, handler: SseHandler) => void
@@ -24,12 +24,14 @@ export const useSseStore = create<SseState>((set, get) => ({
   eventSource: null,
   handlers: new Map(),
   reconnectAttempts: 0,
+  shouldReconnect: false,
 
-  connect: (token: string) => {
+  connect: () => {
     const { eventSource: existing } = get()
     if (existing) existing.close()
 
-    const es = new EventSource(`/api/sse/events?token=${encodeURIComponent(token)}`)
+    // La session voyage dans le cookie : même origine, rien à passer dans l'URL.
+    const es = new EventSource('/api/sse/events', { withCredentials: true })
 
     es.onopen = () => {
       set({ isConnected: true, connectionError: null, reconnectAttempts: 0 })
@@ -56,21 +58,25 @@ export const useSseStore = create<SseState>((set, get) => ({
       const delay = BACKOFF_DELAYS[Math.min(reconnectAttempts, BACKOFF_DELAYS.length - 1)]
 
       setTimeout(() => {
+        if (!get().shouldReconnect) return
         set((state) => ({ reconnectAttempts: state.reconnectAttempts + 1 }))
-        const currentToken = useAuthStore.getState().accessToken
-        if (currentToken) {
-          get().connect(currentToken)
-        }
+        get().connect()
       }, delay)
     }
 
-    set({ eventSource: es })
+    set({ eventSource: es, shouldReconnect: true })
   },
 
   disconnect: () => {
     const { eventSource } = get()
     if (eventSource) eventSource.close()
-    set({ eventSource: null, isConnected: false, reconnectAttempts: 0, connectionError: null })
+    set({
+      eventSource: null,
+      isConnected: false,
+      reconnectAttempts: 0,
+      connectionError: null,
+      shouldReconnect: false,
+    })
   },
 
   subscribe: (type: string, handler: SseHandler) => {

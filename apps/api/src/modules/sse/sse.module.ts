@@ -1,14 +1,12 @@
-import { Global, Module, forwardRef } from '@nestjs/common'
+import { Global, Module } from '@nestjs/common'
 import { SseService } from './sse.service'
 import { SseController } from './sse.controller'
-import { SseAuthGuard } from './sse-auth.guard'
-import { AuthModule } from '../auth/auth.module'
+import { SessionGuard } from '../auth/guards/session.guard'
 
 @Global()
 @Module({
-  imports: [forwardRef(() => AuthModule)],
   controllers: [SseController],
-  providers: [SseService, SseAuthGuard],
+  providers: [SseService, SessionGuard],
   exports: [SseService],
 })
 export class SseModule {}

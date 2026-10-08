@@ -9,7 +9,7 @@ Cloné par chaque nouveau projet client via `/vibe-stack:init-project`. Source d
 | Repo                                                      | Rôle                                                                   |
 | --------------------------------------------------------- | ---------------------------------------------------------------------- |
 | **flow-core** _(ce repo)_                                 | Template runnable React/Vite + NestJS + Prisma + Bun                   |
-| [flow-modules](https://github.com/vibe-flow/flow-modules) | Briques optionnelles (magic-link, mcp, langgraph, etc.)                |
+| [flow-modules](https://github.com/vibe-flow/flow-modules) | Briques optionnelles (mcp, langgraph, etc.)                |
 | [flow-plugin](https://github.com/vibe-flow/flow-plugin)   | Plugin Claude Code (skills + hooks). Invoqué via `/vibe-stack:<skill>` |
 
 ## Stack
@@ -58,7 +58,7 @@ Avec le plugin Claude Code [flow-plugin](https://github.com/vibe-flow/flow-plugi
 /vibe-stack:init-project <slug>
 ```
 
-Le skill crée le repo depuis `flow-core`, renomme le projet, crée son projet Bitwarden Secrets Manager et ses secrets JWT, l'enregistre dans le portal de `local-services` (base locale, ports, `<slug>.localhost`), crée la migration initiale, lance le seed et fait un commit initial propre.
+Le skill crée le repo depuis `flow-core`, renomme le projet, crée son projet Bitwarden Secrets Manager et son secret d'authentification, l'enregistre dans le portal de `local-services` (base locale, ports, `<slug>.localhost`), crée la migration initiale, lance le seed et fait un commit initial propre.
 
 ## Default Credentials
 

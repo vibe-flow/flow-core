@@ -12,6 +12,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    // Le client tRPC importe AppRouter en type : tsc lit donc les fichiers de l'API et leurs décorateurs.
+    "experimentalDecorators": true,
 
     "strict": true,
     "noUnusedLocals": true,

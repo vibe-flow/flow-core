@@ -1,28 +1,22 @@
 import type { ExecutionContext } from '@nestjs/common'
 import { createParamDecorator } from '@nestjs/common'
-import type { JwtPayload } from '../types/jwt-payload.type'
+import type { SessionUser } from '../types/session-user.type'
 
 /**
  * Parameter decorator to extract the current authenticated user from the request.
- * Requires JwtAuthGuard to be applied to the route.
+ * Requires SessionGuard to be applied to the route.
  *
  * @example
- * @UseGuards(JwtAuthGuard)
+ * @UseGuards(SessionGuard)
  * @Get('profile')
- * getProfile(@CurrentUser() user: JwtPayload) {
+ * getProfile(@CurrentUser() user: SessionUser) {
  *   return user;
- * }
- *
- * // Access specific property
- * @Get('my-id')
- * getMyId(@CurrentUser('sub') userId: string) {
- *   return userId;
  * }
  */
 export const CurrentUser = createParamDecorator(
-  (data: keyof JwtPayload | undefined, ctx: ExecutionContext) => {
+  (data: keyof SessionUser | undefined, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest()
-    const user = request.user as JwtPayload
+    const user = request.user as SessionUser
 
     return data ? user?.[data] : user
   },

@@ -1,134 +1,172 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { trpc } from '@/lib/trpc'
-import { useAuthStore } from '@/stores/auth.store'
+import { useState } from 'react' // eslint-disable-line no-restricted-imports
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { AUTH, MagicLinkSchema, SignInSchema } from '@template-dev/shared'
+import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { CardContent, CardFooter } from '@/components/ui/card'
+import AuthLayout, {
+  Field,
+  FormMessage,
+  primaryButton,
+  textLink,
+} from '@/components/auth/AuthLayout'
+import DevLoginPanel from '@/components/auth/DevLoginPanel'
 
-const DEV_LOGIN_ENABLED = import.meta.env.VITE_DEV_LOGIN === 'true' && import.meta.env.DEV
+// N'accepte qu'un chemin interne, pour qu'un lien piégé ne renvoie pas ailleurs après connexion.
+function safeNext(value: string | null): string {
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/'
+}
+
+const MESSAGES: Record<string, string> = {
+  ACCOUNT_DISABLED: 'Ce compte est désactivé.',
+  ACCOUNT_PENDING: "Ce compte attend d'être approuvé.",
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const setAuth = useAuthStore((state) => state.setAuth)
+  const [params] = useSearchParams()
+  const next = safeNext(params.get('next'))
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState('')
+  const [password, setPassword] = useState('')
+  // Un lien magique expiré ou déjà utilisé ramène ici avec `?error=`.
+  const [error, setError] = useState(
+    params.has('error') ? "Ce lien de connexion n'est plus valable. Demandez-en un nouveau." : '',
+  )
+  const [unverified, setUnverified] = useState(false)
+  const [resent, setResent] = useState(false)
+  const [linkSent, setLinkSent] = useState(false)
+  const [pending, setPending] = useState(false)
 
-  const sendMagicLinkMutation = trpc.auth.sendMagicLink.useMutation({
-    onSuccess: () => {
-      setSent(true)
-      setError('')
-    },
-    onError: (err) => {
-      setError(err.message || 'Une erreur est survenue')
-    },
-  })
+  const magicLink = AUTH.mode === 'magic-link'
 
-  const devLoginMutation = trpc.auth.devLogin.useMutation({
-    onSuccess: (data) => {
-      setAuth(data)
-      navigate('/dashboard')
-    },
-    onError: (err) => {
-      setError(err.message || 'Échec de la connexion')
-    },
-  })
+  const submitPassword = async () => {
+    const parsed = SignInSchema.safeParse({ email, password })
+    if (!parsed.success) return setError(parsed.error.issues[0].message)
 
-  const devUsersQuery = trpc.auth.devUsers.useQuery(undefined, {
-    enabled: DEV_LOGIN_ENABLED,
-  })
+    setPending(true)
+    const { error: signInError } = await authClient.signIn.email(parsed.data)
+    setPending(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    sendMagicLinkMutation.mutate({ email })
+    if (!signInError) return navigate(next, { replace: true })
+    if (signInError.code && MESSAGES[signInError.code]) return setError(MESSAGES[signInError.code])
+    if (signInError.status === 403) return setUnverified(true)
+    setError('Adresse e-mail ou mot de passe incorrect.')
   }
 
+  const submitMagicLink = async () => {
+    const parsed = MagicLinkSchema.safeParse({ email })
+    if (!parsed.success) return setError(parsed.error.issues[0].message)
+
+    setPending(true)
+    await authClient.signIn.magicLink({
+      email: parsed.data.email,
+      callbackURL: next,
+      errorCallbackURL: '/login',
+    })
+    setPending(false)
+    // Même réponse que le compte existe ou non : on ne révèle pas quelles adresses ont un compte.
+    setLinkSent(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setUnverified(false)
+    await (magicLink ? submitMagicLink() : submitPassword())
+  }
+
+  const resendVerification = async () => {
+    await authClient.sendVerificationEmail({ email: email.trim(), callbackURL: '/' })
+    setResent(true)
+  }
+
+  const footer = (
+    <>
+      {AUTH.signup !== 'invite-only' && !magicLink && (
+        <p>
+          Pas encore de compte ?{' '}
+          <Link to="/signup" className={textLink}>
+            Créer mon compte
+          </Link>
+        </p>
+      )}
+      {!magicLink && (
+        <p>
+          <Link to="/forgot-password" className={textLink}>
+            Mot de passe oublié ?
+          </Link>
+        </p>
+      )}
+    </>
+  )
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Connexion</CardTitle>
-            <CardDescription>
-              Entrez votre adresse email pour recevoir un lien de connexion
-            </CardDescription>
-          </CardHeader>
-
-          {sent ? (
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Un lien de connexion a été envoyé à votre adresse email. Vérifiez votre boîte mail.
-              </p>
-            </CardContent>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                {error && (
-                  <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-500">
-                    {error}
-                  </div>
+    <AuthLayout
+      title="Connexion"
+      description={
+        magicLink ? 'Recevez un lien de connexion par e-mail.' : 'Connectez-vous à votre compte.'
+      }
+      footer={footer}
+      below={<DevLoginPanel onSignedIn={() => navigate(next, { replace: true })} />}
+    >
+      {linkSent ? (
+        <CardContent>
+          <FormMessage tone="info">
+            Si un compte existe pour cette adresse, un lien de connexion vient de partir. Il est
+            valable 15 minutes. Pensez à regarder dans vos indésirables.
+          </FormMessage>
+        </CardContent>
+      ) : (
+        <form onSubmit={handleSubmit} noValidate>
+          <CardContent className="space-y-4">
+            {error && <FormMessage tone="error">{error}</FormMessage>}
+            {unverified && (
+              <FormMessage tone="info">
+                {resent ? (
+                  'Un nouveau lien de confirmation vient de partir. Pensez à regarder dans vos indésirables.'
+                ) : (
+                  <>
+                    Votre adresse n'est pas encore confirmée. Cliquez sur le lien reçu par e-mail,
+                    ou{' '}
+                    <button type="button" onClick={resendVerification} className={textLink}>
+                      renvoyez-le
+                    </button>
+                    .
+                  </>
                 )}
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    E-mail
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={sendMagicLinkMutation.isPending}>
-                  {sendMagicLinkMutation.isPending
-                    ? 'Envoi en cours...'
-                    : 'Recevoir un lien de connexion'}
-                </Button>
-              </CardFooter>
-            </form>
-          )}
-        </Card>
-
-        {DEV_LOGIN_ENABLED && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Connexion rapide (dev)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {devUsersQuery.isLoading && (
-                <p className="text-sm text-muted-foreground">Chargement...</p>
-              )}
-              {devUsersQuery.data?.map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  onClick={() => devLoginMutation.mutate({ email: user.email, role: user.role })}
-                  disabled={devLoginMutation.isPending}
-                  className="flex w-full items-center justify-between rounded border px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
-                >
-                  <span>{user.email}</span>
-                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                    {user.role}
-                  </span>
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
+              </FormMessage>
+            )}
+            <Field id="email" label="Adresse e-mail">
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </Field>
+            {!magicLink && (
+              <Field id="password" label="Mot de passe">
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </Field>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" className={primaryButton} disabled={pending}>
+              {pending ? 'Envoi…' : magicLink ? 'Recevoir mon lien' : 'Me connecter'}
+            </Button>
+          </CardFooter>
+        </form>
+      )}
+    </AuthLayout>
   )
 }

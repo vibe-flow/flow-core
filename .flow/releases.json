@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.0.0",
+    "date": "2026-10-08",
+    "commit": "2d4f88ca3782e66e0849f2c2c189395afe360e22",
+    "summary": "better-auth remplace l'auth maison (deux modes : mot de passe ou lien magique), NODE_ENV devient obligatoire, la connexion de dev n'existe que sur development, le typecheck du web est bloquant.",
+    "severity": "critical",
+    "migration": true,
+    "integration_notes": "Marche à suivre complète : .flow/migration-v4.md — la lire avant de synchroniser.\n\nPréalable : `bun run typecheck` (arrivé avec cette version) doit passer dans le projet, routeurs tRPC au patron buildRouter. C'est lui qui trouve les `ctx.user.userId` à renommer en `ctx.user.id` ; un oubli donne un filtre Prisma undefined, donc une requête sur tous les utilisateurs.\n\nChoisir le mode dans packages/shared/src/app.config.ts : un projet qui tournait au lien magique garde `magic-link` (rien ne change pour ses utilisateurs) ; `password` leur fait poser un mot de passe. L'inscription est `invite-only` par défaut (elle était `open`).\n\nBase : une migration Prisma à générer dans le projet (users.emailVerified, users.image, users.name obligatoire à remplir d'abord, tables sessions/accounts/verifications, suppression de refresh_tokens et magic_tokens). Tout le monde est déconnecté une fois au déploiement.\n\nSecrets : BETTER_AUTH_SECRET remplace JWT_SECRET et JWT_REFRESH_SECRET (BSM, .kamal/secrets, config/deploy.yml). NODE_ENV doit valoir production ou development, sinon l'API ne démarre pas.\n\nÀ préserver : un MailService étendu par le projet (la synchro retire celui du core), un AuthService custom, tout appel externe à l'API par jeton Bearer (le cookie ne le couvre pas — à cadrer dans le projet). À supprimer : infrastructure/nginx/extra/real-ip.conf s'il existe (le bloc est dans le template)."
+  },
+  {
     "version": "3.0.0",
     "date": "2026-09-21",
     "commit": "2d40674921bb7e871e9b99a79c5431d91febcd3d",

@@ -21,15 +21,12 @@ import { LoggerModule } from './modules/logger/logger.module'
 // import { QueueModule } from './modules/queue/queue.module'; // Uncomment to enable
 import { SseModule } from './modules/sse/sse.module'
 import { TrpcModule } from './trpc/trpc.module'
-import { MailModule } from './modules/mail/mail.module'
-import authConfig from './config/auth.config'
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [resolve(monorepoRoot, '.env.local'), resolve(monorepoRoot, '.env')],
-      load: [authConfig],
       validate: (config) => {
         try {
           return EnvSchema.parse(config)
@@ -54,7 +51,6 @@ import authConfig from './config/auth.config'
     PythonModule,
     // QueueModule, // Uncomment to enable
     SseModule,
-    MailModule,
     TrpcModule,
   ],
   controllers: [AppController],

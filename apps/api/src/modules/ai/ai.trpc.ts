@@ -40,7 +40,7 @@ export class AiTrpc {
               messages: input.messages,
               temperature: input.temperature,
               maxTokens: input.maxTokens,
-              userId: ctx.user?.userId,
+              userId: ctx.user?.id,
               sessionId: input.sessionId,
               tags: input.tags,
             })
@@ -74,7 +74,7 @@ export class AiTrpc {
             const embeddings = await this.aiService.embedding({
               model: input.model,
               input: input.input,
-              userId: ctx.user?.userId,
+              userId: ctx.user?.id,
             })
 
             return {

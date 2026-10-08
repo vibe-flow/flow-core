@@ -1,3 +1,7 @@
+// Ce que le projet est (nom, mode d'authentification) et qui peut quoi
+export * from './app.config'
+export * from './permissions'
+
 // Schemas
 export * from './schemas/user.schema'
 export * from './schemas/auth.schema'

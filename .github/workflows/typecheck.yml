@@ -1,0 +1,21 @@
+# Le typage de bout en bout n'a de valeur que si une rupture casse quelque chose :
+# apps/web tire AppRouter, donc ce tsc vérifie aussi ce que l'API promet au web.
+name: Types
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+      - run: bun install --frozen-lockfile
+      - run: bunx prisma generate
+      - run: bun run typecheck

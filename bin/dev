@@ -35,10 +35,9 @@ export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
 export BACKEND_PORT="${BACKEND_PORT:-$(jq -r '.dev.backend_port // 3000' "$project")}"
 export FRONTEND_PORT="${FRONTEND_PORT:-$(jq -r '.dev.frontend_port // 5173' "$project")}"
 export FRONTEND_URL="${FRONTEND_URL:-http://localhost:${FRONTEND_PORT}}"
-# Connexion en un clic avec les comptes du seed : le web la conditionne en plus à
-# import.meta.env.DEV, elle n'existe donc jamais dans un build de production.
-export AUTH_DEV_LOGIN="${AUTH_DEV_LOGIN:-true}"
-export VITE_DEV_LOGIN="${VITE_DEV_LOGIN:-true}"
+# L'API refuse de démarrer si NODE_ENV ne dit ni `production` ni `development`. C'est
+# `development` qui active la connexion en un clic avec les comptes du seed — rien d'autre à poser.
+export NODE_ENV="${NODE_ENV:-development}"
 
 bws_project="$(jq -r '.bws.project_id // empty' "$project")"
 if [[ -n "$bws_project" ]]; then

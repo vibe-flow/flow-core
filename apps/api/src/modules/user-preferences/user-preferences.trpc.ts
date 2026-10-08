@@ -25,31 +25,31 @@ export class UserPreferencesTrpc {
       get: this.trpc.protectedProcedure
         .input(GetUserPreferenceSchema)
         .query(async ({ ctx, input }) => {
-          return this.preferencesService.get(ctx.user.userId, input.key)
+          return this.preferencesService.get(ctx.user.id, input.key)
         }),
 
       getAll: this.trpc.protectedProcedure.query(async ({ ctx }) => {
-        return this.preferencesService.getAll(ctx.user.userId)
+        return this.preferencesService.getAll(ctx.user.id)
       }),
 
       set: this.trpc.protectedProcedure
         .input(SetUserPreferenceSchema)
         .mutation(async ({ ctx, input }) => {
-          await this.preferencesService.set(ctx.user.userId, input.key, input.value)
+          await this.preferencesService.set(ctx.user.id, input.key, input.value)
           return { success: true }
         }),
 
       bulkSet: this.trpc.protectedProcedure
         .input(BulkSetUserPreferencesSchema)
         .mutation(async ({ ctx, input }) => {
-          await this.preferencesService.bulkSet(ctx.user.userId, input.preferences)
+          await this.preferencesService.bulkSet(ctx.user.id, input.preferences)
           return { success: true }
         }),
 
       delete: this.trpc.protectedProcedure
         .input(DeleteUserPreferenceSchema)
         .mutation(async ({ ctx, input }) => {
-          await this.preferencesService.delete(ctx.user.userId, input.key)
+          await this.preferencesService.delete(ctx.user.id, input.key)
           return { success: true }
         }),
     })

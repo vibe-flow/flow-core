@@ -2,6 +2,9 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Comptes de développement, sans mot de passe : on y entre par la connexion en un clic de
+// l'écran de connexion (active quand NODE_ENV=development). Pour un mot de passe :
+// apps/api/src/cli/create-user.ts.
 async function main() {
   console.log('Seeding database...')
 
@@ -14,6 +17,7 @@ async function main() {
       name: 'Admin User',
       role: 'ADMIN',
       status: 'ACTIVE',
+      emailVerified: true,
     },
   })
 
@@ -28,6 +32,7 @@ async function main() {
       name: 'Regular User',
       role: 'USER',
       status: 'ACTIVE',
+      emailVerified: true,
     },
   })
 

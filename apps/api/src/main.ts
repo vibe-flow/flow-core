@@ -1,15 +1,21 @@
+// En premier : refuse de démarrer si NODE_ENV ne dit ni `production` ni `development`.
+import { IS_PRODUCTION } from './lib/runtime'
 import { NestFactory } from '@nestjs/core'
+import type { NestExpressApplication } from '@nestjs/platform-express'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { cleanupOpenApiDoc } from 'nestjs-zod'
+import { toNodeHandler } from 'better-auth/node'
 import { AppModule } from './app.module'
 import { TrpcRouter } from './trpc/trpc.router'
 import { LoggerService } from './modules/logger/logger.service'
+import { auth } from './lib/auth'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    bodyParser: false,
   })
 
   // Use our LoggerService as the global NestJS logger
@@ -20,11 +26,18 @@ async function bootstrap() {
   const configService = app.get(ConfigService)
   const port = configService.get('BACKEND_PORT', 3000)
 
-  // CORS - origin: true accepts all origins in dev (local-services via Caddy or direct)
+  // Les sessions voyagent dans un cookie : en production, seule l'origine du web est admise
+  // (un autre sous-domaine du même domaine ne doit pas pouvoir appeler l'API avec ce cookie).
+  // En développement toute origine passe : l'adresse change d'une copie de travail à l'autre.
   app.enableCors({
-    origin: true,
+    origin: IS_PRODUCTION ? configService.get<string>('FRONTEND_URL') : true,
     credentials: true,
   })
+
+  // better-auth lit lui-même le corps de ses requêtes : sa route doit passer avant les parseurs.
+  app.getHttpAdapter().getInstance().all('/api/auth/*', toNodeHandler(auth))
+  app.useBodyParser('json')
+  app.useBodyParser('urlencoded', { extended: true })
 
   // Global prefix
   app.setGlobalPrefix('api')
@@ -34,7 +47,7 @@ async function bootstrap() {
     .setTitle('Template Dev API')
     .setDescription('Full-stack template API documentation')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addCookieAuth('better-auth.session_token')
     .build()
 
   const document = SwaggerModule.createDocument(app, config)

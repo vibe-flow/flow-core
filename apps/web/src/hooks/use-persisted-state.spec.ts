@@ -21,7 +21,7 @@ describe('usePersistedState', () => {
   it('persists value to localStorage on change', () => {
     mockGetItem.mockReturnValue(null)
 
-    const { result } = renderHook(() => usePersistedState('test:key', 'default'))
+    const { result } = renderHook(() => usePersistedState<string>('test:key', 'default'))
 
     act(() => {
       result.current[1]('new-value')
@@ -73,7 +73,7 @@ describe('usePersistedState', () => {
   it('supports updater function', () => {
     mockGetItem.mockReturnValue(null)
 
-    const { result } = renderHook(() => usePersistedState('test:counter', 0))
+    const { result } = renderHook(() => usePersistedState<number>('test:counter', 0))
 
     act(() => {
       result.current[1]((prev) => prev + 1)
@@ -109,7 +109,7 @@ describe('usePersistedState', () => {
   it('ignores storage events for other keys', () => {
     mockGetItem.mockReturnValue(null)
 
-    const { result } = renderHook(() => usePersistedState('test:key', 'default'))
+    const { result } = renderHook(() => usePersistedState<string>('test:key', 'default'))
 
     act(() => {
       result.current[1]('my-value')
@@ -134,7 +134,7 @@ describe('usePersistedState', () => {
       throw new Error('SecurityError')
     })
 
-    const { result } = renderHook(() => usePersistedState('test:key', 'fallback'))
+    const { result } = renderHook(() => usePersistedState<string>('test:key', 'fallback'))
     expect(result.current[0]).toBe('fallback')
 
     act(() => {

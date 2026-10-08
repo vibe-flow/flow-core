@@ -1,0 +1,2 @@
+# Le contrat front↔back : apps/web tire AppRouter, donc ce tsc couvre aussi les routeurs de l'API.
+bun run typecheck
