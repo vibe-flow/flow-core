@@ -1,8 +1,14 @@
 import { createTRPCReact, httpBatchLink } from '@trpc/react-query'
+import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '../../../api/src/trpc/trpc.router'
 import { useAuthStore } from '../stores/auth.store'
 
 export const trpc = createTRPCReact<AppRouter>()
+
+// Le type de ce que le serveur renvoie vraiment (une Date y est une chaîne ISO) : à préférer à
+// z.infer d'un schéma partagé pour typer une donnée reçue.
+export type RouterOutputs = inferRouterOutputs<AppRouter>
+export type RouterInputs = inferRouterInputs<AppRouter>
 
 // Token refresh state to prevent multiple simultaneous refresh attempts
 let isRefreshing = false

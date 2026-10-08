@@ -31,7 +31,7 @@ Conventions transversales de l'écosystème `flow`. Ce fichier est importé par 
 ### Partagé (`packages/shared/`)
 
 - Schemas Zod dans `packages/shared/src/schemas/`
-- Types inférés : `export type X = z.infer<typeof XSchema>`
+- Types inférés : `export type X = z.infer<typeof XSchema>` — pour les **entrées**. Une donnée **reçue du serveur** se type par `RouterOutputs['module']['procedure']` (`apps/web/src/lib/trpc.ts`), jamais par `z.infer` : sans transformer, une `Date` arrive en chaîne ISO, et seul le type du routeur le dit
 - **Aucune dépendance serveur** (pas de Prisma, pas de Node APIs)
 - Vérifier l'index avant d'en créer un nouveau (anti-duplication)
 
@@ -133,7 +133,8 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 ## Vérification du code
 
 - **Utiliser `bun run lint:check`** (ESLint, léger)
-- **Éviter `bunx tsc --noEmit`** (peut crash OOM sur gros projets — réservé au CI dans un job dédié si nécessaire)
+- **`bun run typecheck`** (`tsc --noEmit` sur `apps/web`, une dizaine de secondes) : il couvre tout le contrat front↔back, puisque le web tire `AppRouter`. Il est **bloquant** : au `git push` (hook `pre-push`) et en CI. Un type cassé côté API casse ici.
+- **Éviter `bunx tsc --noEmit` sur `apps/api`** seulement (plusieurs Go de mémoire) — l'API est couverte par le typecheck du web pour ce qui traverse tRPC
 - `bun run dev` fonctionne (tsx compile à la volée)
 - **`tsx watch` ne recharge PAS l'environnement** — il ne surveille que `src/`. Toute modification d'une variable d'environnement impose un **redémarrage complet de l'API** : sans ça on débogue un comportement qui vient d'une config déjà remplacée en mémoire.
 
@@ -224,7 +225,7 @@ Les `VITE_*` sont injectées au build (pas au runtime). Pour la prod, déclarer 
 - Code Python dans NestJS → utiliser les scripts via `pythonService.runScript()`
 - Dépendances hors workspace (chaque package doit être dans le monorepo Bun)
 - `Jest` → utiliser Vitest
-- `tsc --noEmit` pour type-checking → utiliser `bun run lint:check`
+- `tsc --noEmit` sur `apps/api` → utiliser `bun run typecheck` (web) et `bun run lint:check`
 - **Fichiers `.env*`** (`.env`, `.env.local`, `.env.prod`, `.env.example`, etc.) → tout passe par BSM + `config/deploy.yml` + `bin/dev`. Voir section "Secrets & Config".
 - **Secrets en clair** dans le repo (hard-coded keys, etc.) → BSM uniquement.
 

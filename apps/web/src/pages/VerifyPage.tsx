@@ -51,9 +51,11 @@ export default function VerifyPage() {
             <p className="text-sm text-muted-foreground">
               Ce lien de connexion est invalide. Veuillez demander un nouveau lien.
             </p>
-            <Button asChild variant="outline" className="w-full">
-              <Link to="/login">Retour à la page de connexion</Link>
-            </Button>
+            <Link to="/login" className="block">
+              <Button variant="outline" className="w-full">
+                Retour à la page de connexion
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -126,9 +128,11 @@ export default function VerifyPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">Ce lien est invalide ou a expiré.</p>
-            <Button asChild variant="outline" className="w-full">
-              <Link to="/login">Retour à la page de connexion</Link>
-            </Button>
+            <Link to="/login" className="block">
+              <Button variant="outline" className="w-full">
+                Retour à la page de connexion
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
