@@ -7,11 +7,12 @@ export const EnvSchema = z.object({
   // Redis
   REDIS_URL: z.string().url(),
 
-  // JWT
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_EXPIRES_IN: z.string().default('15m'),
-  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
-  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  // better-auth — le secret signe les cookies de session ; obligatoire en production (lib/auth.ts)
+  BETTER_AUTH_SECRET: z
+    .string()
+    .min(32, 'BETTER_AUTH_SECRET must be at least 32 characters')
+    .optional(),
+  BETTER_AUTH_URL: z.string().url().optional(),
 
   // LiteLLM (optional)
   LITELLM_BASE_URL: z.string().url().optional(),
@@ -33,9 +34,12 @@ export const EnvSchema = z.object({
   // Ports
   FRONTEND_PORT: z.string().default('5173'),
   BACKEND_PORT: z.string().default('3000'),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Obligatoire, sans valeur par défaut : un environnement qui ne se déclare pas ne démarre pas.
+  // C'est ce qui garantit que les facilités de développement (connexion en un clic) ne s'activent
+  // que là où `development` est écrit — voir apps/api/src/lib/runtime.ts.
+  NODE_ENV: z.enum(['development', 'production', 'test']),
 
-  // Mail (required when magic-link auth is enabled)
+  // Mail (vérification d'adresse et réinitialisation de mot de passe)
   MAIL_HOST: z.string().default('localhost'),
   MAIL_PORT: z.string().default('1025'),
   MAIL_FROM: z.string().default('noreply@localhost'),
@@ -44,11 +48,6 @@ export const EnvSchema = z.object({
 
   // Frontend
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
-
-  // Auth
-  AUTH_REGISTRATION_MODE: z.string().optional(),
-  AUTH_MAGIC_LINK_TTL: z.string().optional(),
-  AUTH_DEV_LOGIN: z.string().optional(),
 })
 
 export type Env = z.infer<typeof EnvSchema>

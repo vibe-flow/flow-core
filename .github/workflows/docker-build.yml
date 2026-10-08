@@ -45,8 +45,7 @@ jobs:
           docker run --rm \
             -e DATABASE_URL=postgresql://ci:ci@localhost:5432/ci \
             -e REDIS_URL=redis://localhost:6379 \
-            -e JWT_SECRET=ci-smoke-secret-0123456789abcdef0123 \
-            -e JWT_REFRESH_SECRET=ci-smoke-secret-0123456789abcdef0123 \
+            -e BETTER_AUTH_SECRET=ci-smoke-secret-0123456789abcdef0123 \
             --entrypoint node flow-check-api:ci \
             -e "require('./dist/app.module'); console.log('API : modules chargés')"
 

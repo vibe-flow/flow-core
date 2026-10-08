@@ -7,7 +7,7 @@ export const UserStatusSchema = z.enum(['ACTIVE', 'PENDING', 'DISABLED'])
 export const UserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
-  name: z.string().nullable(),
+  name: z.string(),
   role: UserRoleSchema,
   status: UserStatusSchema,
   createdAt: z.date(),
@@ -16,7 +16,7 @@ export const UserSchema = z.object({
 
 export const UpdateUserSchema = z.object({
   email: z.string().email().optional(),
-  name: z.string().nullable().optional(),
+  name: z.string().trim().min(1).optional(),
   role: UserRoleSchema.optional(),
 })
 

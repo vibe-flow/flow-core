@@ -1,36 +1,27 @@
+import { useState } from 'react' // eslint-disable-line no-restricted-imports
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuthStore, useUser } from '@/stores/auth.store'
+import { useUser } from '@/stores/auth.store'
 import { useSidebarOpen } from '@/stores/ui.store'
-import { trpc } from '@/lib/trpc'
+import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboardIcon, adminOnly: false },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon, adminOnly: false },
 ]
 
 function useLogout() {
   const navigate = useNavigate()
-  const logout = useAuthStore((state) => state.logout)
-  const refreshToken = useAuthStore((state) => state.refreshToken)
-
-  const mutation = trpc.auth.logout.useMutation({
-    onSettled: () => {
-      logout()
-      navigate('/login')
-    },
-  })
+  const [isPending, setIsPending] = useState(false)
 
   return {
-    handleLogout: () => {
-      if (refreshToken) {
-        mutation.mutate({ refreshToken })
-      } else {
-        logout()
-        navigate('/login')
-      }
+    handleLogout: async () => {
+      setIsPending(true)
+      await authClient.signOut()
+      setIsPending(false)
+      navigate('/login', { replace: true })
     },
-    isPending: mutation.isPending,
+    isPending,
   }
 }
 
@@ -38,6 +29,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = useUser()
   const [sidebarOpen, setSidebarOpen] = useSidebarOpen()
   const { handleLogout, isPending } = useLogout()
+  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === 'ADMIN')
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -60,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 p-2">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -83,7 +75,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {sidebarOpen ? (
             <div className="space-y-2 px-1">
               <div className="truncate text-xs text-muted-foreground">
-                {user?.name ?? user?.email}
+                {user?.name || user?.email}
               </div>
               <Button
                 variant="ghost"
@@ -93,14 +85,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 disabled={isPending}
               >
                 <LogOutIcon />
-                <span className="ml-2">Logout</span>
+                <span className="ml-2">Se déconnecter</span>
               </Button>
             </div>
           ) : (
             <button
               onClick={handleLogout}
               className="flex w-full items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-              title="Logout"
+              title="Se déconnecter"
             >
               <LogOutIcon />
             </button>

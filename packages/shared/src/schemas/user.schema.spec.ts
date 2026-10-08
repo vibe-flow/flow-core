@@ -19,7 +19,7 @@ describe('UserSchema', () => {
     const result = UserSchema.safeParse({
       id: 'user-1',
       email: 'user@example.com',
-      name: null,
+      name: 'Pending User',
       role: 'USER',
       status: 'PENDING',
       createdAt: new Date(),
@@ -32,7 +32,7 @@ describe('UserSchema', () => {
     const result = UserSchema.safeParse({
       id: 'user-1',
       email: 'user@example.com',
-      name: null,
+      name: 'Pending User',
       role: 'USER',
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -44,7 +44,7 @@ describe('UserSchema', () => {
     const result = UserSchema.safeParse({
       id: 'user-1',
       email: 'user@example.com',
-      name: null,
+      name: 'Pending User',
       role: 'USER',
       status: 'ARCHIVED',
       createdAt: new Date(),

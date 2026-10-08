@@ -1,28 +1,9 @@
 import type { inferAsyncReturnType } from '@trpc/server'
 import type { CreateExpressContextOptions } from '@trpc/server/adapters/express'
-import { verify } from 'jsonwebtoken'
-import type { JwtPayload } from '../modules/auth/types/jwt-payload.type'
+import { getSessionUser } from '../modules/auth/session-user'
 
 export async function createContext({ req, res }: CreateExpressContextOptions) {
-  // Extract JWT token from Authorization header
-  const authHeader = req.headers.authorization
-  let user: JwtPayload | null = null
-
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7)
-    try {
-      // Verify and decode JWT token
-      const decoded = verify(token, process.env.JWT_SECRET || 'your-secret-key') as any
-      user = {
-        userId: decoded.sub,
-        email: decoded.email,
-        role: decoded.role,
-      }
-    } catch (error) {
-      // Token is invalid or expired, user remains null
-      user = null
-    }
-  }
+  const user = await getSessionUser(req.headers)
 
   return {
     req,

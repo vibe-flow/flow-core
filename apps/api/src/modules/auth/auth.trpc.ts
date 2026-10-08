@@ -1,66 +1,48 @@
 import { Injectable, Inject } from '@nestjs/common'
+import { z } from 'zod'
+import { InviteUserSchema } from '@template-dev/shared'
 import { TrpcService } from '../../trpc/trpc.service'
-import { AuthService } from './auth.service'
 import { UsersService } from '../users/users.service'
-import {
-  SendMagicLinkSchema,
-  VerifyMagicLinkSchema,
-  DevLoginSchema,
-  InviteUserSchema,
-  RefreshTokenSchema,
-} from '@template-dev/shared'
+import { AccountsService } from './accounts.service'
 
+// Connexion, inscription, mots de passe et liens magiques sont servis par better-auth sur
+// /api/auth (main.ts). Ici : ce que l'application ajoute autour.
 @Injectable()
 export class AuthTrpc {
   readonly router: ReturnType<AuthTrpc['buildRouter']>
 
   constructor(
     @Inject(TrpcService) private readonly trpc: TrpcService,
-    @Inject(AuthService) private readonly authService: AuthService,
     @Inject(UsersService) private readonly usersService: UsersService,
+    @Inject(AccountsService) private readonly accounts: AccountsService,
   ) {
     this.router = this.buildRouter()
   }
 
   // Type de retour inféré, jamais annoté : il porte les procédures jusqu'au client web.
   private buildRouter() {
+    const id = z.object({ id: z.string() })
     return this.trpc.router({
-      sendMagicLink: this.trpc.procedure.input(SendMagicLinkSchema).mutation(async ({ input }) => {
-        return await this.authService.sendMagicLink(input.email)
-      }),
-
-      verifyMagicLink: this.trpc.procedure
-        .input(VerifyMagicLinkSchema)
-        .mutation(async ({ input }) => {
-          return await this.authService.verifyMagicLink(input.token)
-        }),
-
-      devUsers: this.trpc.procedure.query(async () => {
-        return await this.authService.getDevUsers()
-      }),
-
-      devLogin: this.trpc.procedure.input(DevLoginSchema).mutation(async ({ input }) => {
-        return await this.authService.loginAs(input.email, input.role)
+      me: this.trpc.protectedProcedure.query(async ({ ctx }) => {
+        return await this.usersService.findOne(ctx.user.id)
       }),
 
       inviteUser: this.trpc.adminProcedure.input(InviteUserSchema).mutation(async ({ input }) => {
-        await this.authService.inviteUser(input.email, input.role)
+        return await this.accounts.invite(input)
+      }),
+
+      resendAccess: this.trpc.adminProcedure.input(id).mutation(async ({ input }) => {
+        await this.accounts.resendAccess(input.id)
         return { success: true }
       }),
 
-      refresh: this.trpc.procedure.input(RefreshTokenSchema).mutation(async ({ input }) => {
-        return await this.authService.refreshToken(input.refreshToken)
+      disableUser: this.trpc.adminProcedure.input(id).mutation(async ({ ctx, input }) => {
+        return await this.accounts.disable(input.id, ctx.user.id)
       }),
 
-      logout: this.trpc.protectedProcedure
-        .input(RefreshTokenSchema)
-        .mutation(async ({ ctx, input }) => {
-          await this.authService.logout(ctx.user.userId, input.refreshToken)
-          return { success: true }
-        }),
-
-      me: this.trpc.protectedProcedure.query(async ({ ctx }) => {
-        return await this.usersService.findOne(ctx.user.userId)
+      activateUser: this.trpc.adminProcedure.input(id).mutation(async ({ input }) => {
+        await this.accounts.activate(input.id)
+        return { success: true }
       }),
     })
   }

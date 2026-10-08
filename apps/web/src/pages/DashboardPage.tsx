@@ -1,4 +1,5 @@
 import { trpc } from '@/lib/trpc'
+import { AUTH } from '@template-dev/shared'
 import { useUser } from '@/stores/auth.store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -71,7 +72,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Auth</dt>
-                <dd className="font-mono text-xs">magic-link</dd>
+                <dd className="font-mono text-xs">{AUTH.mode}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">API</dt>

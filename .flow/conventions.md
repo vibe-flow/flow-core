@@ -26,7 +26,7 @@ Conventions transversales de l'écosystème `flow`. Ce fichier est importé par 
 - **UI** : shadcn/ui + Tailwind (pas de CSS custom sauf nécessité absolue)
 - **State global** : Zustand (`stores/`), jamais Context API ni Redux
 - **Data fetching** : TanStack Query (via tRPC), jamais fetch/axios direct
-- **Auth** : hooks de `useAuthStore` (`useIsAuthenticated`, `useUser`, etc.)
+- **Auth** : `useUser`, `useIsAuthenticated`, `useAuthLoading` (`stores/auth.store.ts`) ; les actions (connexion, déconnexion) par `authClient` (`lib/auth-client.ts`)
 
 ### Partagé (`packages/shared/`)
 
@@ -130,6 +130,35 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 - **JAMAIS** `prisma migrate reset` sauf accord explicite du dev
 - Les enums nécessitent parfois du SQL manuel (`ALTER TYPE`)
 
+## Authentification
+
+better-auth, monté sur `/api/auth` (`apps/api/src/lib/auth.ts`). La session voyage dans un cookie
+httpOnly ; `getSessionUser` la lit pour le contexte tRPC, le guard REST (`SessionGuard`) et le SSE.
+
+- **Ce que le projet est** se règle dans `packages/shared/src/app.config.ts` : `mode` (`password`
+  ou `magic-link`), `signup` (`invite-only`, `open`, `approval`), longueur du mot de passe, durées.
+  Ce n'est pas de l'environnement : c'est versionné.
+- **L'utilisateur de la requête** : `ctx.user.id`, `ctx.user.role` (tRPC) ; `@CurrentUser()` (REST).
+- **Droits** : demander une permission, jamais un rôle — `can(user, 'accounts.manage')`
+  (`packages/shared/src/permissions.ts`). Ajouter un rôle = une valeur d'enum Prisma + une ligne.
+- **Comptes** : `AccountsService` (inviter, renvoyer l'accès, désactiver, activer). Désactiver
+  ferme les sessions ouvertes. Premier administrateur : `apps/api/src/cli/create-user.ts`.
+- **Mails d'auth** : `apps/api/src/lib/auth-mail.ts`, seul point d'envoi.
+- **Ne jamais** lire `X-Forwarded-For` : seul `X-Real-IP` fait foi (`lib/auth-ip.ts`, bloc « IP
+  réelle » du template nginx).
+
+### `NODE_ENV` se déclare
+
+`NODE_ENV` vaut `production` ou `development` — sans valeur par défaut. Absent ou autre, l'API
+refuse de démarrer (`apps/api/src/lib/runtime.ts`). L'image de production fixe `production`,
+`bin/dev` et la plateforme de dev fixent `development`.
+
+Les facilités de développement ne s'activent **que** sur `development`. La première est la
+**connexion de dev** : l'écran de connexion liste les comptes de la base et on entre dans n'importe
+lequel en un clic (`lib/auth-dev.ts`, `components/auth/DevLoginPanel.tsx`). En production ses routes
+n'existent pas. Pour conditionner autre chose au développement : `IS_DEVELOPMENT` de `lib/runtime`,
+jamais `process.env.NODE_ENV !== 'production'`.
+
 ## Vérification du code
 
 - **Utiliser `bun run lint:check`** (ESLint, léger)
@@ -155,7 +184,7 @@ Règle ESLint `no-restricted-imports` warn sur `useState` pour forcer la réflex
 ### BSM — convention
 
 - **Un projet vibe-stack = un projet BSM dédié**, dont l'UUID vit dans `.flow/project.json` (`bws.project_id` + `bws.shared_project_id` pour les secrets transversaux). L'org Bitwarden est en plan **Teams** → projets illimités (l'ancien plafond de 3 projets du free tier n'existe plus).
-- **Noms de secrets simples, sans préfixe** : `DATABASE_URL`, `JWT_SECRET`, `VITE_MAPBOX_TOKEN`… Chaque app ayant son projet dédié, il n'y a rien à désambiguïser. (L'ancien préfixe `<service>/<KEY>` était un contournement du plafond 3 projets — abandonné.)
+- **Noms de secrets simples, sans préfixe** : `DATABASE_URL`, `BETTER_AUTH_SECRET`, `VITE_MAPBOX_TOKEN`… Chaque app ayant son projet dédié, il n'y a rien à désambiguïser. (L'ancien préfixe `<service>/<KEY>` était un contournement du plafond 3 projets — abandonné.)
 - **Un seul machine account partagé** (token `BWS_ACCESS_TOKEN`, dans `~/.zshrc`) avec accès à tous les projets. L'isolation se fait au niveau **projet**, pas au niveau machine account. Un machine account par projet ne serait qu'un durcissement sécurité optionnel (réduire le périmètre d'un token fuité) — non requis aujourd'hui.
 - En CI : `BWS_ACCESS_TOKEN` est le seul secret GitHub Actions à configurer ; tout le reste vient de BSM.
 - En dev local : **`bin/dev`**, qui lit les secrets du seul projet de `.flow/project.json` (voir « Dev local » ci-dessous). Ne pas lancer `bws run` sans `--project-id` : il agrège tous les projets visibles par le machine account partagé → collision sur les clés homonymes (ex. `VITE_MAPBOX_TOKEN` présent dans plusieurs projets).
@@ -178,7 +207,7 @@ KAMAL_REGISTRY_PASSWORD=$(kamal secrets extract KAMAL_REGISTRY_PASSWORD ${SECRET
 # Secrets propres à l'app depuis son projet dédié
 SECRETS=$(kamal secrets fetch --adapter bitwarden-sm "${BWS_PROJECT_ID}/all")
 DATABASE_URL=$(kamal secrets extract DATABASE_URL ${SECRETS})
-JWT_SECRET=$(kamal secrets extract JWT_SECRET ${SECRETS})
+BETTER_AUTH_SECRET=$(kamal secrets extract BETTER_AUTH_SECRET ${SECRETS})
 # … une ligne `extract` par secret consommé
 ```
 
@@ -207,7 +236,7 @@ Tout lancement local passe par **`bin/dev`** : `bin/dev` seul démarre API + web
 
 **Pourquoi 2 passe devant 3** : en BSM, `DATABASE_URL` est l'URL de **production** (`server-postgres`, un hôte du réseau Docker du serveur). `bws run` l'imposerait par-dessus la valeur locale et l'API mourrait au démarrage (`P1001`).
 
-**Pourquoi pas de valeurs par défaut dans le code** : `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET` et `JWT_REFRESH_SECRET` restent **obligatoires** dans `EnvSchema`. Une prod à qui il manque une variable doit refuser de démarrer, pas viser `localhost` ou signer ses jetons avec une clé connue de tous. Et une valeur par défaut dans le code n'atteint pas la CLI Prisma, qui lit `DATABASE_URL` elle-même — `bin/dev` couvre les deux.
+**Pourquoi pas de valeurs par défaut dans le code** : `DATABASE_URL`, `REDIS_URL` et `NODE_ENV` restent **obligatoires** dans `EnvSchema` (et `BETTER_AUTH_SECRET` en production). Une prod à qui il manque une variable doit refuser de démarrer, pas viser `localhost` ou signer ses jetons avec une clé connue de tous. Et une valeur par défaut dans le code n'atteint pas la CLI Prisma, qui lit `DATABASE_URL` elle-même — `bin/dev` couvre les deux.
 
 **Ports** : Vite est en `strictPort`. Un port déjà pris fait échouer le démarrage au lieu de glisser en silence sur le suivant, ce qui laissait le proxy viser l'ancienne API — et l'on testait l'app d'à côté.
 
@@ -220,7 +249,7 @@ Les `VITE_*` sont injectées au build (pas au runtime). Pour la prod, déclarer 
 ## Interdictions strictes
 
 - `class-validator` → utiliser Zod
-- `localStorage` direct pour l'auth → utiliser `useAuthStore`
+- Jeton ou session dans le `localStorage` → la session vit dans un cookie httpOnly, lue par `useUser`
 - Appels LLM directs → passer par `AiService`
 - Code Python dans NestJS → utiliser les scripts via `pythonService.runScript()`
 - Dépendances hors workspace (chaque package doit être dans le monorepo Bun)

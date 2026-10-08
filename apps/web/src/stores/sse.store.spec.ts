@@ -45,15 +45,15 @@ describe('SseStore', () => {
   })
 
   describe('connect', () => {
-    it('should create an EventSource with the token URL', () => {
-      useSseStore.getState().connect('my-token')
+    it('should create an EventSource on the events URL', () => {
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       expect(eventSource).toBeInstanceOf(MockEventSource)
-      expect((eventSource as unknown as MockEventSource).url).toBe('/api/sse/events?token=my-token')
+      expect((eventSource as unknown as MockEventSource).url).toBe('/api/sse/events')
     })
 
     it('should set isConnected true on open', () => {
-      useSseStore.getState().connect('token')
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       mockEs = eventSource as unknown as MockEventSource
       mockEs.onopen!(new Event('open'))
@@ -63,18 +63,18 @@ describe('SseStore', () => {
     })
 
     it('should close existing EventSource before opening a new one', () => {
-      useSseStore.getState().connect('token1')
+      useSseStore.getState().connect()
       const firstEs = useSseStore.getState().eventSource as unknown as MockEventSource
       const closeSpy = vi.spyOn(firstEs, 'close')
 
-      useSseStore.getState().connect('token2')
+      useSseStore.getState().connect()
       expect(closeSpy).toHaveBeenCalled()
     })
 
     it('should dispatch message to matching handlers', () => {
       const handler = vi.fn()
       useSseStore.getState().subscribe('entity_changed', handler)
-      useSseStore.getState().connect('token')
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       mockEs = eventSource as unknown as MockEventSource
 
@@ -87,7 +87,7 @@ describe('SseStore', () => {
     it('should not dispatch message to handlers of different type', () => {
       const handler = vi.fn()
       useSseStore.getState().subscribe('heartbeat', handler)
-      useSseStore.getState().connect('token')
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       mockEs = eventSource as unknown as MockEventSource
 
@@ -98,7 +98,7 @@ describe('SseStore', () => {
     })
 
     it('should ignore invalid JSON messages', () => {
-      useSseStore.getState().connect('token')
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       mockEs = eventSource as unknown as MockEventSource
       expect(() => {
@@ -107,7 +107,7 @@ describe('SseStore', () => {
     })
 
     it('should set isConnected false and schedule reconnect on error', () => {
-      useSseStore.getState().connect('token')
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       mockEs = eventSource as unknown as MockEventSource
       mockEs.onopen!(new Event('open'))
@@ -121,7 +121,7 @@ describe('SseStore', () => {
 
   describe('disconnect', () => {
     it('should close EventSource and reset state', () => {
-      useSseStore.getState().connect('token')
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       mockEs = eventSource as unknown as MockEventSource
       const closeSpy = vi.spyOn(mockEs, 'close')
@@ -172,7 +172,7 @@ describe('SseStore', () => {
 
   describe('reconnect backoff', () => {
     it('should increment reconnectAttempts on error', () => {
-      useSseStore.getState().connect('token')
+      useSseStore.getState().connect()
       const { eventSource } = useSseStore.getState()
       mockEs = eventSource as unknown as MockEventSource
       mockEs.onopen!(new Event('open'))

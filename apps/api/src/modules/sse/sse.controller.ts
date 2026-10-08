@@ -3,14 +3,14 @@ import type { Request } from 'express'
 import type { Observable } from 'rxjs'
 import { merge, interval, map } from 'rxjs'
 import { SseService } from './sse.service'
-import { SseAuthGuard } from './sse-auth.guard'
+import { SessionGuard } from '../auth/guards/session.guard'
 
 interface MessageEvent {
   data: string
 }
 
 @Controller('sse')
-@UseGuards(SseAuthGuard)
+@UseGuards(SessionGuard)
 export class SseController {
   constructor(@Inject(SseService) private readonly sseService: SseService) {}
 

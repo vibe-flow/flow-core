@@ -1,60 +1,56 @@
 import { z } from 'zod'
-import { UserRoleSchema, UserStatusSchema } from './user.schema'
+import { AUTH } from '../app.config'
+import { UserRoleSchema } from './user.schema'
 
-// --- Input schemas ---
-export const SendMagicLinkSchema = z.object({
-  email: z.string().email('Invalid email address'),
+const email = z.string().trim().email('Adresse e-mail invalide')
+const newPassword = z
+  .string()
+  .min(
+    AUTH.minPasswordLength,
+    `Le mot de passe doit contenir au moins ${AUTH.minPasswordLength} caractères`,
+  )
+
+export const SignInSchema = z.object({
+  email,
+  password: z.string().min(1, 'Mot de passe requis'),
 })
 
-export const VerifyMagicLinkSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
-})
+export const SignUpSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Indiquez votre prénom et votre nom'),
+    email,
+    password: newPassword,
+    confirmation: z.string(),
+  })
+  .refine((data) => data.password === data.confirmation, {
+    message: 'Les deux mots de passe ne correspondent pas',
+    path: ['confirmation'],
+  })
 
-export const RefreshTokenSchema = z.object({
-  refreshToken: z.string(),
-})
+export const ForgotPasswordSchema = z.object({ email })
+
+/** Mode `magic-link` : l'adresse suffit. */
+export const MagicLinkSchema = z.object({ email })
 
 export const InviteUserSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email,
+  name: z.string().trim().optional(),
   role: UserRoleSchema.default('USER'),
 })
 
-export const DevLoginSchema = z.object({
-  email: z.string().email().optional(),
-  role: UserRoleSchema.optional(),
-})
+export const ResetPasswordSchema = z
+  .object({
+    password: newPassword,
+    confirmation: z.string(),
+  })
+  .refine((data) => data.password === data.confirmation, {
+    message: 'Les deux mots de passe ne correspondent pas',
+    path: ['confirmation'],
+  })
 
-// --- Response schemas ---
-export const AuthResponseSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string(),
-  user: z.object({
-    id: z.string(),
-    email: z.string().email(),
-    name: z.string().nullable(),
-    role: UserRoleSchema,
-    status: UserStatusSchema,
-  }),
-})
-
-export const MagicLinkSentSchema = z.object({
-  success: z.literal(true),
-  message: z.string(),
-})
-
-export const DevUserSchema = z.object({
-  id: z.string(),
-  email: z.string(),
-  name: z.string().nullable(),
-  role: UserRoleSchema,
-})
-
-// --- Types ---
-export type SendMagicLinkInput = z.infer<typeof SendMagicLinkSchema>
-export type VerifyMagicLinkInput = z.infer<typeof VerifyMagicLinkSchema>
-export type RefreshTokenInput = z.infer<typeof RefreshTokenSchema>
+export type SignInInput = z.infer<typeof SignInSchema>
+export type SignUpInput = z.infer<typeof SignUpSchema>
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>
+export type MagicLinkInput = z.infer<typeof MagicLinkSchema>
 export type InviteUserInput = z.infer<typeof InviteUserSchema>
-export type DevLoginInput = z.infer<typeof DevLoginSchema>
-export type AuthResponse = z.infer<typeof AuthResponseSchema>
-export type MagicLinkSent = z.infer<typeof MagicLinkSentSchema>
-export type DevUser = z.infer<typeof DevUserSchema>
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>

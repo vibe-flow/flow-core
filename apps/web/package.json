@@ -14,12 +14,13 @@
     "test:cov": "vitest run --coverage"
   },
   "dependencies": {
+    "@template-dev/shared": "workspace:*",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-switch": "^1.2.6",
     "@tanstack/react-query": "^5.62.14",
-    "@template-dev/shared": "workspace:*",
     "@trpc/client": "^11.0.0-rc.665",
     "@trpc/react-query": "^11.0.0-rc.665",
+    "better-auth": "^1.7.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
