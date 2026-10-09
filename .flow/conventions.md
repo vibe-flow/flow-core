@@ -141,6 +141,10 @@ httpOnly ; `getSessionUser` la lit pour le contexte tRPC, le guard REST (`Sessio
 - **L'utilisateur de la requête** : `ctx.user.id`, `ctx.user.role` (tRPC) ; `@CurrentUser()` (REST).
 - **Droits** : demander une permission, jamais un rôle — `can(user, 'accounts.manage')`
   (`packages/shared/src/permissions.ts`). Ajouter un rôle = une valeur d'enum Prisma + une ligne.
+- **Qui passe quelle porte** : `apps/api/src/trpc/__tests__/acces.spec.ts` liste chaque procédure
+  et son accès (`session`, `soi-ou-admin`, `admin`). Une procédure ajoutée sans y être déclarée
+  casse le test. Un compte ne modifie de lui-même que ce que porte `UpdateSelfSchema`
+  (`users.updateMe`) — jamais son rôle, que seul `users.update` (administrateur) écrit.
 - **Comptes** : `AccountsService` (inviter, renvoyer l'accès, désactiver, activer). Désactiver
   ferme les sessions ouvertes. Premier administrateur : `apps/api/src/cli/create-user.ts`.
 - **Mails d'auth** : `apps/api/src/lib/auth-mail.ts`, seul point d'envoi.

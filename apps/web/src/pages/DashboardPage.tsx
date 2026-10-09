@@ -1,5 +1,5 @@
 import { trpc } from '@/lib/trpc'
-import { AUTH } from '@template-dev/shared'
+import { AUTH, can } from '@template-dev/shared'
 import { useUser } from '@/stores/auth.store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -24,7 +24,9 @@ function StatusRow({ label, ok, detail }: { label: string; ok: boolean; detail?:
 export default function DashboardPage() {
   const user = useUser()
   const { data: aiStatus } = trpc.ai.status.useQuery()
-  const { data: users } = trpc.users.list.useQuery()
+  // La liste des comptes est réservée à qui les gère : on ne la demande pas pour les autres.
+  const managesAccounts = can(user, 'accounts.manage')
+  const { data: users } = trpc.users.list.useQuery(undefined, { enabled: managesAccounts })
 
   const aiConfigured = aiStatus?.configured ?? false
   const userCount = users?.length ?? 0
@@ -49,7 +51,9 @@ export default function DashboardPage() {
             <StatusRow
               label="Auth"
               ok={true}
-              detail={`${userCount} user${userCount !== 1 ? 's' : ''}`}
+              detail={
+                managesAccounts ? `${userCount} user${userCount !== 1 ? 's' : ''}` : AUTH.mode
+              }
             />
             <StatusRow
               label="LLM"

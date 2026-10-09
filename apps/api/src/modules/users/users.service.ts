@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import type { UpdateUser } from '@template-dev/shared'
+import type { UpdateSelf, UpdateUser } from '@template-dev/shared'
 
 @Injectable()
 export class UsersService {
@@ -39,6 +39,12 @@ export class UsersService {
     return user
   }
 
+  /** Ce qu'un compte change sur lui-même : son nom, rien d'autre. */
+  async updateSelf(id: string, data: UpdateSelf) {
+    return this.update(id, { name: data.name })
+  }
+
+  /** Réservé à l'administrateur : c'est le seul chemin qui écrit un rôle. */
   async update(id: string, data: UpdateUser) {
     const user = await this.prisma.user.findUnique({ where: { id } })
 
@@ -48,7 +54,8 @@ export class UsersService {
 
     return this.prisma.user.update({
       where: { id },
-      data,
+      // Champ par champ : rien de ce que l'appelant ajouterait n'atteint la base.
+      data: { email: data.email, name: data.name, role: data.role },
       select: {
         id: true,
         email: true,
