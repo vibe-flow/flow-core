@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.1.0",
+    "date": "2026-10-14",
+    "commit": "cef6b9e52721c0650b6e89b74a4130025f03916e",
+    "summary": "Mise en production par tag de version : un tag v* lance bin/deploy sur le runner auto-hébergé du serveur flow ; un push sur main ne déploie plus rien.",
+    "severity": "moderate",
+    "migration": false,
+    "integration_notes": "Ajouter .github/workflows/deploy.yml tel quel (fichier du gabarit, identique partout) et reprendre la section « Mise en production » de .flow/conventions.md. Rien à faire côté secrets : le jeton Bitwarden vit dans l'environnement du runner flow, aucun secret GitHub n'est à poser (un BWS_ACCESS_TOKEN déjà posé dans les secrets du dépôt peut être retiré). Un projet qui avait son propre deploy.yml (déploiement au push sur main) le remplace : désormais on déploie en poussant un tag v<x.y.z>. Un dépôt sans config/deploy.yml passe sans rien déployer."
+  },
+  {
     "version": "4.0.0",
     "date": "2026-10-08",
     "commit": "2d4f88ca3782e66e0849f2c2c189395afe360e22",
