@@ -22,6 +22,9 @@ concurrency:
 
 jobs:
   deploy:
+    # Un dépôt public (le gabarit lui-même) n'a pas accès au runner du serveur : l'organisation le
+    # refuse, à raison, et le job attendrait sans fin. Il ne démarre donc que dans un dépôt privé.
+    if: github.event.repository.private
     runs-on: [self-hosted, flow]
     timeout-minutes: 45
     steps:
