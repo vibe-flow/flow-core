@@ -65,6 +65,13 @@ Toute app est une **PWA** (ex-module `pwa`, intégré au core en v3.0.0) : insta
 - Merger via PR quand on veut une trace ou une review ; sinon commit direct sur `main`.
 - Worktrees dans `.worktrees/` disponibles pour paralléliser (`git worktree add .worktrees/<slug> main`).
 
+## Mise en production
+
+- **Un tag de version la déclenche** (`git tag -a v1.4.0 && git push origin v1.4.0`), ou « Run workflow » sur `Déploiement` dans GitHub. Un push sur `main` ne déploie rien : fusionner et mettre en ligne sont deux décisions.
+- Le workflow `.github/workflows/deploy.yml` (gabarit, identique partout) tourne sur le runner auto-hébergé du serveur flow (`runs-on: [self-hosted, flow]`) et appelle **`bin/deploy`** — jamais `kamal deploy` seul, qui laisserait l'API sur l'ancienne version.
+- Le tag nomme la version en ligne : c'est le point de retour d'un rollback.
+- `bin/deploy` depuis un poste reste possible, pour déboguer ou quand GitHub est indisponible.
+
 ## Structure d'un module backend
 
 Dans `apps/api/src/modules/<nom>/` :
@@ -190,7 +197,7 @@ jamais `process.env.NODE_ENV !== 'production'`.
 - **Un projet vibe-stack = un projet BSM dédié**, dont l'UUID vit dans `.flow/project.json` (`bws.project_id` + `bws.shared_project_id` pour les secrets transversaux). L'org Bitwarden est en plan **Teams** → projets illimités (l'ancien plafond de 3 projets du free tier n'existe plus).
 - **Noms de secrets simples, sans préfixe** : `DATABASE_URL`, `BETTER_AUTH_SECRET`, `VITE_MAPBOX_TOKEN`… Chaque app ayant son projet dédié, il n'y a rien à désambiguïser. (L'ancien préfixe `<service>/<KEY>` était un contournement du plafond 3 projets — abandonné.)
 - **Un seul machine account partagé** (token `BWS_ACCESS_TOKEN`, dans `~/.zshrc`) avec accès à tous les projets. L'isolation se fait au niveau **projet**, pas au niveau machine account. Un machine account par projet ne serait qu'un durcissement sécurité optionnel (réduire le périmètre d'un token fuité) — non requis aujourd'hui.
-- En CI : `BWS_ACCESS_TOKEN` est le seul secret GitHub Actions à configurer ; tout le reste vient de BSM.
+- En CI : aucun secret dans GitHub. Le runner du serveur flow porte `BWS_ACCESS_TOKEN` dans son environnement (`~/actions-runner/.env`) ; tout le reste vient de BSM.
 - En dev local : **`bin/dev`**, qui lit les secrets du seul projet de `.flow/project.json` (voir « Dev local » ci-dessous). Ne pas lancer `bws run` sans `--project-id` : il agrège tous les projets visibles par le machine account partagé → collision sur les clés homonymes (ex. `VITE_MAPBOX_TOKEN` présent dans plusieurs projets).
 
 ### Fichier `.kamal/secrets` (versionné)

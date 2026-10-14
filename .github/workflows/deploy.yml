@@ -1,0 +1,39 @@
+# Mise en production. Un tag de version (v1.4.0) la déclenche, ou un lancement à la main depuis
+# GitHub ; un push sur main ne déploie rien : fusionner et mettre en ligne sont deux décisions.
+#
+# Le job tourne sur flow-runner, installé sur le serveur flow lui-même (étiquette `flow`) : rien ne
+# passe par les serveurs de GitHub. Il appelle bin/deploy, le même script que depuis un poste ; le
+# jeton Bitwarden (BWS_ACCESS_TOKEN) et l'encodage UTF-8 viennent de l'environnement du runner
+# (~/actions-runner/.env), aucun secret n'est posé dans GitHub.
+#
+# Fichier du gabarit flow-core, identique dans tous les projets. Un dépôt sans config/deploy.yml
+# (le gabarit lui-même, un projet pas encore mis en ligne) passe sans rien déployer.
+name: Déploiement
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# Jamais deux mises en production du même projet à la fois ; celle qui attend n'annule pas l'autre.
+concurrency:
+  group: deploiement-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, flow]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Projet mis en ligne ?
+        id: kamal
+        run: |
+          if [ -f config/deploy.yml ]; then
+            echo "deployable=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Pas de config/deploy.yml : rien à déployer."
+          fi
+      - name: bin/deploy
+        if: steps.kamal.outputs.deployable == '1'
+        run: bin/deploy
