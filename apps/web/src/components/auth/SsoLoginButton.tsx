@@ -16,8 +16,9 @@ export default function SsoLoginButton({ next, auto }: { next: string; auto: boo
 
   const signIn = async (provider: SsoInfo) => {
     setPending(true)
-    await authClient.signIn.oauth2({
-      providerId: provider.providerId,
+    // Le fournisseur générique est un fournisseur social pour better-auth 1.7 : `/sign-in/social`.
+    await authClient.signIn.social({
+      provider: provider.providerId,
       callbackURL: next,
       errorCallbackURL: '/login?error=sso',
     })

@@ -13,6 +13,8 @@ import { genericOAuth } from 'better-auth/plugins'
  * donc à la première connexion, même quand l'inscription est sur invitation. Un compte qui existe
  * déjà à la même adresse vérifiée se relie au lieu d'être doublé (`accountLinking`, lib/auth.ts).
  * Le statut d'un compte créé ainsi suit `AUTH.signup` : en `approval`, il attend un administrateur.
+ *
+ * Le retour du fournisseur : `/api/auth/callback/sso` — l'adresse à déclarer chez lui.
  */
 export const SSO_PROVIDER_ID = 'sso'
 

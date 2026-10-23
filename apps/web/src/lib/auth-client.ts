@@ -1,9 +1,5 @@
 import { createAuthClient } from 'better-auth/react'
-import {
-  genericOAuthClient,
-  inferAdditionalFields,
-  magicLinkClient,
-} from 'better-auth/client/plugins'
+import { inferAdditionalFields, magicLinkClient } from 'better-auth/client/plugins'
 
 export const authClient = createAuthClient({
   basePath: '/api/auth',
@@ -16,8 +12,6 @@ export const authClient = createAuthClient({
     }),
     // Sans effet en mode `password` : le serveur ne monte la route qu'en mode `magic-link`.
     magicLinkClient(),
-    // Sans effet tant que l'API n'a pas de fournisseur SSO (apps/api/src/lib/auth-sso.ts).
-    genericOAuthClient(),
   ],
 })
 
