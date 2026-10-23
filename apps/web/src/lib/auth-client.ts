@@ -1,5 +1,9 @@
 import { createAuthClient } from 'better-auth/react'
-import { inferAdditionalFields, magicLinkClient } from 'better-auth/client/plugins'
+import {
+  genericOAuthClient,
+  inferAdditionalFields,
+  magicLinkClient,
+} from 'better-auth/client/plugins'
 
 export const authClient = createAuthClient({
   basePath: '/api/auth',
@@ -12,8 +16,33 @@ export const authClient = createAuthClient({
     }),
     // Sans effet en mode `password` : le serveur ne monte la route qu'en mode `magic-link`.
     magicLinkClient(),
+    // Sans effet tant que l'API n'a pas de fournisseur SSO (apps/api/src/lib/auth-sso.ts).
+    genericOAuthClient(),
   ],
 })
+
+// ---------------------------------------------------------------------------------------------
+// Connexion SSO
+//
+// Le serveur ne monte le fournisseur que si son environnement le décrit : le web demande, et
+// n'affiche le bouton que si l'API répond.
+// ---------------------------------------------------------------------------------------------
+
+export interface SsoInfo {
+  providerId: string
+  name: string
+}
+
+/** Le fournisseur d'identité de l'installation — `null` quand il n'y en a pas. */
+export async function fetchSsoInfo(): Promise<SsoInfo | null> {
+  try {
+    const res = await fetch('/api/auth/sso/info', { credentials: 'include' })
+    if (!res.ok) return null
+    return (await res.json()) as SsoInfo
+  } catch {
+    return null
+  }
+}
 
 // ---------------------------------------------------------------------------------------------
 // Connexion de développement

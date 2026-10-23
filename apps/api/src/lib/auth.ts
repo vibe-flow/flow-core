@@ -9,6 +9,7 @@ import { IS_DEVELOPMENT, IS_PRODUCTION } from './runtime'
 import { sendAuthMail } from './auth-mail'
 import { authIpAddressOptions } from './auth-ip'
 import { devLogin } from './auth-dev'
+import { readSsoConfig, ssoPlugins, SSO_PROVIDER_ID } from './auth-sso'
 
 const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173'
 const secret = process.env.BETTER_AUTH_SECRET
@@ -43,6 +44,10 @@ if (AUTH.mode === 'magic-link') {
     }),
   )
 }
+
+// La connexion par le fournisseur d'identité de l'installation, quand l'environnement la décrit.
+const sso = readSsoConfig()
+if (sso) plugins.push(...ssoPlugins(sso))
 
 // La connexion en un clic n'existe que là où `development` est écrit (lib/runtime.ts).
 if (IS_DEVELOPMENT) plugins.push(devLogin())
@@ -83,6 +88,11 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => {
       await sendAuthMail(user.email, 'verification', url)
     },
+  },
+  // Un compte qui existe déjà à la même adresse se relie au fournisseur au lieu d'être doublé : le
+  // fournisseur de l'installation fait foi sur l'adresse.
+  account: {
+    accountLinking: { enabled: true, trustedProviders: sso ? [SSO_PROVIDER_ID] : [] },
   },
   session: {
     expiresIn: AUTH.sessionDays * DAY,
