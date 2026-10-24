@@ -47,7 +47,7 @@ if (AUTH.mode === 'magic-link') {
 
 // La connexion par le fournisseur d'identité de l'installation, quand l'environnement la décrit.
 const sso = readSsoConfig()
-if (sso) plugins.push(...ssoPlugins(sso))
+if (sso) plugins.push(...ssoPlugins(sso, { signUp: AUTH.signup !== 'invite-only' }))
 
 // La connexion en un clic n'existe que là où `development` est écrit (lib/runtime.ts).
 if (IS_DEVELOPMENT) plugins.push(devLogin())

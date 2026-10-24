@@ -9,10 +9,12 @@ import { genericOAuth } from 'better-auth/plugins'
  * `SSO_CLIENT_SECRET` (et `SSO_NAME`, le nom affiché sur le bouton). Sinon rien : ni route, ni
  * bouton, l'écran de connexion demande `/api/auth/sso/info` et n'affiche rien sur un 404.
  *
- * Le fournisseur décide qui entre (le groupe de l'application, chez Authelia) : un compte se crée
- * donc à la première connexion, même quand l'inscription est sur invitation. Un compte qui existe
- * déjà à la même adresse vérifiée se relie au lieu d'être doublé (`accountLinking`, lib/auth.ts).
- * Le statut d'un compte créé ainsi suit `AUTH.signup` : en `approval`, il attend un administrateur.
+ * Le fournisseur décide qui entre (le groupe de l'application, chez Authelia) ; l'application décide
+ * si elle crée le compte. Un compte qui existe déjà à la même adresse se relie au lieu d'être doublé
+ * (`accountLinking`, lib/auth.ts). En `invite-only`, la connexion SSO n'ouvre QUE ces comptes-là :
+ * l'invitation pose ce que l'application attache à un compte (son entreprise, son rôle), qu'un compte
+ * né d'une connexion n'aurait pas. Ailleurs, le compte se crée à la première connexion, son statut
+ * suivant `AUTH.signup` (en `approval`, il attend un administrateur).
  *
  * Le retour du fournisseur : `/api/auth/callback/sso` — l'adresse à déclarer chez lui.
  */
@@ -37,7 +39,10 @@ export function readSsoConfig(env: NodeJS.ProcessEnv = process.env): SsoConfig |
 }
 
 /** Les plugins de la connexion SSO : le client OIDC, et la route qui dit au web qu'il existe. */
-export function ssoPlugins(config: SsoConfig): BetterAuthPlugin[] {
+export function ssoPlugins(
+  config: SsoConfig,
+  options: { signUp: boolean } = { signUp: true },
+): BetterAuthPlugin[] {
   return [
     genericOAuth({
       config: [
@@ -48,6 +53,7 @@ export function ssoPlugins(config: SsoConfig): BetterAuthPlugin[] {
           clientSecret: config.clientSecret,
           scopes: ['openid', 'email', 'profile'],
           pkce: true,
+          disableSignUp: !options.signUp,
           // Le nom et l'adresse suivent le fournisseur à chaque connexion : il fait foi.
           overrideUserInfo: true,
           mapProfileToUser: (profile) => ({

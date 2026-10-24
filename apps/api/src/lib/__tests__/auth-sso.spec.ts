@@ -58,3 +58,20 @@ describe('route /sso/info', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('inscription par le SSO', () => {
+  const optionsDe = (signUp?: boolean) => {
+    const config = readSsoConfig(complet)!
+    const [oauth] = signUp === undefined ? ssoPlugins(config) : ssoPlugins(config, { signUp })
+    return (oauth as unknown as { options: { config: { disableSignUp?: boolean }[] } }).options
+      .config[0]
+  }
+
+  it('crée le compte à la première connexion par défaut', () => {
+    expect(optionsDe().disableSignUp).toBe(false)
+  })
+
+  it("sur invitation, n'ouvre que les comptes qui existent", () => {
+    expect(optionsDe(false).disableSignUp).toBe(true)
+  })
+})

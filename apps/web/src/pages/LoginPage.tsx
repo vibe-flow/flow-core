@@ -33,7 +33,9 @@ export default function LoginPage() {
   // Un lien magique expiré ou déjà utilisé ramène ici avec `?error=`.
   const [error, setError] = useState(
     params.get('error') === 'sso'
-      ? "La connexion par votre compte n'a pas abouti. Votre accès à cette application est peut-être fermé."
+      ? AUTH.signup === 'invite-only'
+        ? "La connexion par votre compte n'a pas abouti : aucun compte n'existe à votre adresse dans cette application, ou votre accès est fermé. Demandez une invitation à son administrateur."
+        : "La connexion par votre compte n'a pas abouti. Votre accès à cette application est peut-être fermé."
       : params.has('error')
         ? "Ce lien de connexion n'est plus valable. Demandez-en un nouveau."
         : '',
