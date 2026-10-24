@@ -1,0 +1,20 @@
+# Ce que l'application déclare à la plateforme Dimora, qui la lit pour la brancher sur l'installation.
+#
+#   sso: true     L'application se connecte par le fournisseur d'identité de l'installation (OIDC,
+#                 Authelia). La plateforme lui crée un client et lui donne SSO_ISSUER, SSO_CLIENT_ID,
+#                 SSO_CLIENT_SECRET, SSO_NAME (et, si elle veut, SSO_SESSION_HOURS, 24 par défaut).
+#                 Retour à déclarer chez le fournisseur : <adresse de l'app>/api/auth/callback/sso ;
+#                 scopes demandés : openid email profile groups.
+#
+#   roles:        Les rôles à proposer quand on ouvre l'application à quelqu'un, `CLÉ: libellé`.
+#                 La clé est celle de ROLE_PERMISSIONS (packages/shared/src/permissions.ts), la seule
+#                 table des rôles : ce fichier n'en est que la déclaration, et un test
+#                 (apps/api/src/lib/__tests__/dimora-app.spec.ts) casse dès qu'ils divergent. La
+#                 plateforme donne un rôle en mettant la personne dans le groupe
+#                 `app-<SSO_CLIENT_ID>-<clé en minuscules>` (ex. app-maria-manager) ; l'application
+#                 relit ses groupes à chaque connexion — plusieurs : celui qui a le plus de
+#                 permissions ; aucun : celui qui en a le moins.
+sso: true
+roles:
+  USER: Utilisateur
+  ADMIN: Administrateur

@@ -9,7 +9,7 @@ import { IS_DEVELOPMENT, IS_PRODUCTION } from './runtime'
 import { sendAuthMail } from './auth-mail'
 import { authIpAddressOptions } from './auth-ip'
 import { devLogin } from './auth-dev'
-import { readSsoConfig, ssoPlugins, SSO_PROVIDER_ID } from './auth-sso'
+import { isSsoAccountEmail, readSsoConfig, ssoPlugins, SSO_PROVIDER_ID } from './auth-sso'
 
 const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173'
 const secret = process.env.BETTER_AUTH_SECRET
@@ -25,6 +25,9 @@ const DAY = 60 * 60 * 24
 
 const plugins: BetterAuthPlugin[] = []
 
+// La connexion par le fournisseur d'identité de l'installation, quand l'environnement la décrit.
+export const sso = readSsoConfig()
+
 if (AUTH.mode === 'magic-link') {
   plugins.push(
     magicLink({
@@ -39,14 +42,14 @@ if (AUTH.mode === 'magic-link') {
           const exists = await prisma.user.findUnique({ where: { email }, select: { id: true } })
           if (!exists) return
         }
+        // Un compte relié au fournisseur de l'installation n'a pas d'autre identifiant.
+        if (sso && (await isSsoAccountEmail(email))) return
         await sendAuthMail(email, 'magic-link', url)
       },
     }),
   )
 }
 
-// La connexion par le fournisseur d'identité de l'installation, quand l'environnement la décrit.
-const sso = readSsoConfig()
 if (sso) plugins.push(...ssoPlugins(sso))
 
 // La connexion en un clic n'existe que là où `development` est écrit (lib/runtime.ts).
@@ -79,6 +82,8 @@ export const auth = betterAuth({
     // un accès volé ne survit pas au changement.
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
+      // Même silence que pour une adresse inconnue : un compte relié n'a pas de mot de passe.
+      if (sso && (await isSsoAccountEmail(user.email))) return
       await sendAuthMail(user.email, 'reset', url)
     },
   },
@@ -95,6 +100,7 @@ export const auth = betterAuth({
     accountLinking: { enabled: true, trustedProviders: sso ? [SSO_PROVIDER_ID] : [] },
   },
   session: {
+    // Une session ouverte par le fournisseur SSO, elle, dure `SSO_SESSION_HOURS` (lib/auth-sso.ts).
     expiresIn: AUTH.sessionDays * DAY,
     updateAge: DAY,
     // Pas de cache de session dans le cookie : une session fermée, un compte désactivé ou un
