@@ -12,6 +12,7 @@ import AuthLayout, {
   textLink,
 } from '@/components/auth/AuthLayout'
 import DevLoginPanel from '@/components/auth/DevLoginPanel'
+import SsoLoginButton from '@/components/auth/SsoLoginButton'
 
 // N'accepte qu'un chemin interne, pour qu'un lien piégé ne renvoie pas ailleurs après connexion.
 function safeNext(value: string | null): string {
@@ -31,7 +32,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   // Un lien magique expiré ou déjà utilisé ramène ici avec `?error=`.
   const [error, setError] = useState(
-    params.has('error') ? "Ce lien de connexion n'est plus valable. Demandez-en un nouveau." : '',
+    params.get('error') === 'sso'
+      ? "La connexion par votre compte n'a pas abouti. Votre accès à cette application est peut-être fermé."
+      : params.has('error')
+        ? "Ce lien de connexion n'est plus valable. Demandez-en un nouveau."
+        : '',
   )
   const [unverified, setUnverified] = useState(false)
   const [resent, setResent] = useState(false)
@@ -121,6 +126,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} noValidate>
           <CardContent className="space-y-4">
             {error && <FormMessage tone="error">{error}</FormMessage>}
+            <SsoLoginButton next={next} auto={params.has('sso') && !params.has('error')} />
             {unverified && (
               <FormMessage tone="info">
                 {resent ? (

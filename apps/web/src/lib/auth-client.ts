@@ -16,6 +16,29 @@ export const authClient = createAuthClient({
 })
 
 // ---------------------------------------------------------------------------------------------
+// Connexion SSO
+//
+// Le serveur ne monte le fournisseur que si son environnement le décrit : le web demande, et
+// n'affiche le bouton que si l'API répond.
+// ---------------------------------------------------------------------------------------------
+
+export interface SsoInfo {
+  providerId: string
+  name: string
+}
+
+/** Le fournisseur d'identité de l'installation — `null` quand il n'y en a pas. */
+export async function fetchSsoInfo(): Promise<SsoInfo | null> {
+  try {
+    const res = await fetch('/api/auth/sso/info', { credentials: 'include' })
+    if (!res.ok) return null
+    return (await res.json()) as SsoInfo
+  } catch {
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Connexion de développement
 //
 // Ces routes n'existent côté serveur que si NODE_ENV=development (apps/api/src/lib/auth-dev.ts).
