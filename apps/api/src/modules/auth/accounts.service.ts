@@ -4,7 +4,8 @@ import { TRPCError } from '@trpc/server'
 import { AUTH } from '@template-dev/shared'
 import type { UserRole } from '@template-dev/shared'
 import { PrismaService } from '../prisma/prisma.service'
-import { auth } from '../../lib/auth'
+import { auth, sso } from '../../lib/auth'
+import { SSO_PROVIDER_ID } from '../../lib/auth-sso'
 import { sendAuthMail } from '../../lib/auth-mail'
 import { PASSWORD_TOKEN_PREFIX, createPasswordToken } from './account-token'
 
@@ -50,6 +51,19 @@ export class AccountsService {
   async resendAccess(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } })
     if (!user) throw new TRPCError({ code: 'NOT_FOUND', message: 'Compte introuvable' })
+    // Un compte relié au SSO n'a pas d'autre identifiant : il n'y a rien à lui envoyer.
+    if (sso) {
+      const linked = await this.prisma.account.findFirst({
+        where: { userId: id, providerId: SSO_PROVIDER_ID },
+        select: { id: true },
+      })
+      if (linked) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Ce compte se connecte avec ${sso.name} : aucun accès à lui envoyer`,
+        })
+      }
+    }
     await this.sendAccess(user.id, user.email)
   }
 

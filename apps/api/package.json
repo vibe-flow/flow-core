@@ -12,7 +12,7 @@
     "test:cov": "vitest run --coverage"
   },
   "dependencies": {
-    "@template-dev/shared": "workspace:*",
+    "@better-auth/core": "1.7.7",
     "@nestjs/common": "^10.4.15",
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.4.15",
@@ -22,6 +22,7 @@
     "@nestjs/swagger": "^8.0.7",
     "@nestjs/throttler": "^6.2.1",
     "@prisma/client": "^6.2.1",
+    "@template-dev/shared": "workspace:*",
     "@trpc/server": "^11.0.0-rc.665",
     "better-auth": "^1.7.4",
     "bullmq": "^5.31.2",
@@ -57,6 +58,7 @@
     "eslint": "^9.18.0",
     "supertest": "^7.1.4",
     "typescript": "^5.7.2",
-    "vitest": "^4.0.14"
+    "vitest": "^4.0.14",
+    "yaml": "2.8.2"
   }
 }

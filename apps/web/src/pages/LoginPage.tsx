@@ -55,6 +55,9 @@ export default function LoginPage() {
 
     if (!signInError) return navigate(next, { replace: true })
     if (signInError.code && MESSAGES[signInError.code]) return setError(MESSAGES[signInError.code])
+    // Un compte relié au SSO : le message nomme le fournisseur (« Ce compte se connecte avec … »).
+    if (signInError.code === 'ACCOUNT_SSO' && signInError.message)
+      return setError(signInError.message)
     if (signInError.status === 403) return setUnverified(true)
     setError('Adresse e-mail ou mot de passe incorrect.')
   }
