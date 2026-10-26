@@ -183,11 +183,13 @@ describe('la fiche miroir', () => {
     expect(await fiche(auth, 'alice@example.com')).toMatchObject({ role: 'ADMIN' })
   })
 
-  it('sans groupe de l’application, le rôle qui a le moins de permissions', async () => {
+  it('sans groupe de rôle, le rôle reste ce qu’il était — un rôle se baisse par un groupe plus bas', async () => {
     const auth = authDeTest()
     await connexionSso(auth, { ...alice, groups: ['app-maria-admin'] })
-    await connexionSso(auth, { ...alice, groups: [] })
+    await connexionSso(auth, { ...alice, groups: ['app-maria'] })
+    expect(await fiche(auth, 'alice@example.com')).toMatchObject({ role: 'ADMIN' })
 
+    await connexionSso(auth, { ...alice, groups: ['app-maria', 'app-maria-user'] })
     expect(await fiche(auth, 'alice@example.com')).toMatchObject({ role: 'USER' })
   })
 

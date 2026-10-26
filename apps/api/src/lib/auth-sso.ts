@@ -83,8 +83,10 @@ export function groupsOf(claims: SsoClaims): string[] | null {
 /**
  * Le rôle que donnent les groupes : `app-<clientId>-<rôle>`, le rôle étant une clé de
  * `ROLE_PERMISSIONS` en minuscules (`app-maria-manager` → `MANAGER`). Plusieurs : celui qui a le
- * plus de permissions. Aucun de cette forme : celui qui en a le moins. À égalité, l'ordre de la
- * table. (`table` n'est là que pour les tests.)
+ * plus de permissions. À égalité, l'ordre de la table. Aucun de cette forme : `null` — le
+ * fournisseur ne dit rien du rôle (une installation qui ne donne encore que le groupe d'accès,
+ * `app-<clientId>`) : une fiche existante le garde, une fiche neuve prend `lowestRole`.
+ * (`table` n'est là que pour les tests.)
  */
 export function roleFromGroups<
   T extends Readonly<Record<string, readonly string[]>> = typeof ROLE_PERMISSIONS,
@@ -100,10 +102,16 @@ export function roleFromGroups<
       .map((g) => g.slice(prefix.length)),
   )
   const granted = roles.filter((role) => held.has(role.toLowerCase()))
-  if (granted.length === 0) {
-    return roles.reduce((least, role) => (weight(role) < weight(least) ? role : least))
-  }
+  if (granted.length === 0) return null
   return granted.reduce((most, role) => (weight(role) > weight(most) ? role : most))
+}
+
+/** Le rôle qui a le moins de permissions — celui d'une fiche neuve sans groupe de rôle. */
+export function lowestRole<
+  T extends Readonly<Record<string, readonly string[]>> = typeof ROLE_PERMISSIONS,
+>(table: T = ROLE_PERMISSIONS as unknown as T): keyof T & string {
+  const roles = Object.keys(table) as (keyof T & string)[]
+  return roles.reduce((least, role) => (table[role].length < table[least].length ? role : least))
 }
 
 // ─── Le compte relié ────────────────────────────────────────────────────────────────────────────
@@ -188,7 +196,8 @@ export function ssoPlugins(config: SsoConfig, options: SsoOptions = {}): BetterA
                   const claims = await currentClaims()
                   if (!claims) return
                   const fields = await newUserFields(claims)
-                  const role = roleFromGroups(groupsOf(claims) ?? [], config.clientId)
+                  const role =
+                    roleFromGroups(groupsOf(claims) ?? [], config.clientId) ?? lowestRole()
                   return { data: { ...user, ...fields, role } }
                 },
               },
@@ -210,13 +219,15 @@ export function ssoPlugins(config: SsoConfig, options: SsoOptions = {}): BetterA
                     }
                     return
                   }
-                  // Le rôle suit les groupes à chaque connexion. Sans claim `groups`, on ne
-                  // sait rien : le rôle reste ce qu'il était.
+                  // Le rôle suit les groupes à chaque connexion. Sans claim `groups`, ou sans
+                  // groupe de rôle parmi eux, on ne sait rien : le rôle reste ce qu'il était.
                   const groups = groupsOf(claims)
                   if (groups) {
                     const role = roleFromGroups(groups, config.clientId)
-                    const user = await ctx.context.internalAdapter.findUserById(session.userId)
-                    if (user && (user as { role?: string }).role !== role) {
+                    const user = role
+                      ? await ctx.context.internalAdapter.findUserById(session.userId)
+                      : null
+                    if (role && user && (user as { role?: string }).role !== role) {
                       await ctx.context.internalAdapter.updateUser(session.userId, { role })
                     }
                   } else {

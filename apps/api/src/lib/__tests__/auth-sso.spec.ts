@@ -1,7 +1,7 @@
 // La connexion SSO : montée seulement quand l'environnement la décrit, entière ou refusée.
 import { betterAuth } from 'better-auth'
 import { describe, expect, it } from 'vitest'
-import { groupsOf, readSsoConfig, roleFromGroups, ssoPlugins } from '../auth-sso'
+import { groupsOf, lowestRole, readSsoConfig, roleFromGroups, ssoPlugins } from '../auth-sso'
 
 const complet = {
   SSO_ISSUER: 'https://auth.example.com/',
@@ -71,16 +71,18 @@ describe('les groupes donnent le rôle', () => {
     expect(roleFromGroups(['app-maria-user', 'app-maria-manager'], 'maria', MARIA)).toBe('MANAGER')
   })
 
-  it('aucun de cette forme : celui qui en a le moins', () => {
-    expect(roleFromGroups([], 'maria', MARIA)).toBe('USER')
-    expect(roleFromGroups(['admins', 'app-autre-admin', 'app-maria-inconnu'], 'maria', MARIA)).toBe(
-      'USER',
-    )
+  it('aucun de cette forme : rien — une fiche existante garde son rôle, une neuve prend le plus bas', () => {
+    expect(roleFromGroups([], 'maria', MARIA)).toBeNull()
+    expect(roleFromGroups(['app-maria'], 'maria', MARIA)).toBeNull()
+    expect(
+      roleFromGroups(['admins', 'app-autre-admin', 'app-maria-inconnu'], 'maria', MARIA),
+    ).toBeNull()
+    expect(lowestRole(MARIA)).toBe('USER')
   })
 
   it('ne confond pas deux applications dont l’une prolonge le nom de l’autre', () => {
-    expect(roleFromGroups(['app-maria-test-admin'], 'maria', MARIA)).toBe('USER')
-    expect(roleFromGroups(['app-maria-admin'], 'maria-test', MARIA)).toBe('USER')
+    expect(roleFromGroups(['app-maria-test-admin'], 'maria', MARIA)).toBeNull()
+    expect(roleFromGroups(['app-maria-admin'], 'maria-test', MARIA)).toBeNull()
   })
 
   it('suit la table du projet par défaut', () => {
