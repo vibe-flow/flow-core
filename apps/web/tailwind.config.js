@@ -1,12 +1,34 @@
+import defaultTheme from 'tailwindcss/defaultTheme'
+
+// Densité : les marges, retraits et écarts suivent `--density` (index.css, 1 par défaut). Les
+// largeurs et hauteurs restent fixes : une densité serre l'air, pas les objets.
+const dense = Object.fromEntries(
+  Object.entries(defaultTheme.spacing).map(([k, v]) => [
+    k,
+    v.endsWith('rem') ? `calc(${v} * var(--density, 1))` : v,
+  ]),
+)
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
   content: [
     "./index.html",
     "./src/**/*.{ts,tsx,js,jsx}",
+    // Le kit de design et ses prototypes n'existent qu'en développement.
+    ...(globalThis.process?.env.NODE_ENV === 'production'
+      ? ['!./src/design-kit/**', '!./src/prototypes/**']
+      : []),
   ],
   theme: {
+    padding: dense,
+    gap: dense,
+    space: dense,
+    margin: { auto: 'auto', ...dense },
     extend: {
+      fontFamily: {
+        sans: 'var(--font-sans)',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

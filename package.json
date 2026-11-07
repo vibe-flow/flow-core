@@ -39,6 +39,7 @@
     "typecheck": "bun run --filter=@template-dev/web typecheck",
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",
+    "design:apply": "bun apps/web/scripts/design-apply.ts",
     "format": "prettier --write \"**/*.{ts,tsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md,css}\"",
     "prepare": "husky",

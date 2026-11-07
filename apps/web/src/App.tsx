@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AUTH } from '@template-dev/shared'
 import { useIsAuthenticated, useAuthLoading } from './stores/auth.store'
@@ -13,6 +13,13 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import SettingsPage from './pages/SettingsPage'
+
+// Kit de design (.flow/design-kit.md) : en développement seulement. En production la condition vaut
+// `false` à la compilation, et ni le panneau ni les prototypes n'entrent dans le bundle.
+const DesignKit = import.meta.env.DEV ? lazy(() => import('./design-kit/DesignKit')) : null
+const PrototypesPage = import.meta.env.DEV
+  ? lazy(() => import('./design-kit/PrototypesPage'))
+  : null
 
 // ============================================================================
 // SSE MANAGER
@@ -86,7 +93,22 @@ function App() {
     <>
       <SseManager />
       <MiseAJour />
+      {DesignKit && (
+        <Suspense fallback={null}>
+          <DesignKit />
+        </Suspense>
+      )}
       <Routes>
+        {PrototypesPage && (
+          <Route
+            path="/prototypes/*"
+            element={
+              <Suspense fallback={<Loading />}>
+                <PrototypesPage />
+              </Suspense>
+            }
+          />
+        )}
         <Route
           path="/login"
           element={
