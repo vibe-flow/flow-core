@@ -1,0 +1,34 @@
+[
+  {
+    "version": "v4.2.0",
+    "date": "2026-11-14T03:00:40.206Z",
+    "title": "Vibestack : les nouveautés du projet dans l'unique bulle de mise à jour (socle, propagé à tous les projets)",
+    "nouveautes": [
+      "La bulle « Quoi de neuf » liste les versions que tu n'as pas encore vues ; fermée ou validée par « Mettre à jour », elle ne revient pas, y compris sur tes autres onglets.",
+      "Se connecter avec le compte de l'installation : ton compte se crée à la première connexion, ou se relie à un compte existant à la même adresse.",
+      "Ton rôle est relu à chaque connexion d'après tes groupes d'accès ; si tu en as plusieurs, c'est le plus étendu qui s'applique.",
+      "Une session ouverte par ce compte dure 24 heures par défaut, sans prolongation.",
+      "Un compte relié se connecte uniquement par le fournisseur : ni lien magique ni lien de mot de passe pour lui, et ses rôles ne se changent pas dans l'application."
+    ],
+    "ameliorations": [
+      "Quand aucune nouveauté n'est à dire, la mise à jour garde son bandeau discret habituel ; sans nouveauté ni version en attente, rien ne s'affiche.",
+      "Sans groupe de rôle fourni par ton installation, ton rôle ne change plus à la connexion suivante : un administrateur reste administrateur."
+    ],
+    "corrections": [
+      "Les mises en ligne ne restent plus bloquées en attente sur un dépôt public."
+    ],
+    "une": [
+      {
+        "titre": "Quoi de neuf dans la mise à jour",
+        "texte": "les nouveautés apparaissent dans la même bulle que la mise à jour, que tu peux fermer ou valider, sans second pop-up.",
+        "kind": "nouveautes"
+      },
+      {
+        "titre": "Connexion avec ton compte",
+        "texte": "un bouton « Se connecter avec … » à l'écran de connexion te fait entrer avec le compte de ton installation.",
+        "kind": "nouveautes"
+      }
+    ],
+    "resume": "Cette livraison apporte les nouveautés du projet dans la bulle de mise à jour, ainsi qu'une connexion par le compte de l'installation, avec un rôle qui suit tes groupes."
+  }
+]
