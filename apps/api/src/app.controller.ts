@@ -12,4 +12,10 @@ export class AppController {
   getHealth() {
     return this.appService.getHealth()
   }
+
+  @Get('versions')
+  @ApiOperation({ summary: 'Notes de version du projet (quoi de neuf)' })
+  getVersions() {
+    return this.appService.getVersions()
+  }
 }
