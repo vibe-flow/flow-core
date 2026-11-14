@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.2.0",
+    "date": "2026-11-14",
+    "commit": "77bc91151837094145a9c75106eaa0d13bf0a75f",
+    "summary": "La bulle de mise à jour montre aussi les nouveautés du projet (« Quoi de neuf »), en une seule pop-up au lieu de deux. Nouvelle route API GET /api/versions qui lit .dimora/versions.json.",
+    "severity": "moderate",
+    "migration": false,
+    "integration_notes": "apps/web : nouveau fichier src/lib/nouveautes.ts ; src/components/MiseAJour.tsx et MiseAJour.spec.tsx refondus (fusion nouveautés + rechargement en UNE bulle, mémoire du vu par usePersistedState('nouveautes.vue')). apps/api : AJOUTER sans écraser — getVersions()+lireVersions() dans app.service.ts (lit .dimora/versions.json) et la route @Get('versions') dans app.controller.ts ; ces deux fichiers sont souvent customisés par le projet, ne jamais les remplacer en bloc."
+  },
+  {
     "version": "4.1.0",
     "date": "2026-10-14",
     "commit": "cef6b9e52721c0650b6e89b74a4130025f03916e",
